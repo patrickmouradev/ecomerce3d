@@ -1,0 +1,13 @@
+config:
+  outputs: |
+    [OUTPUT]
+        Name  opensearch
+        Match *
+        Host  192.168.15.10
+        Port  9200
+        HTTP_User admin
+        HTTP_Passwd 212925Png@01
+        tls On
+        tls.verify Off
+        Index kubernetes_logs
+        Type  _doc

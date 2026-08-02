@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Define a regra de conversão personalizada para mascarar logs -->
+    <conversionRule conversionWord="maskedMsg" converterClass="com.print3d.ecommerce.cryptography.LogMaskingConverter" />
+
+    <!-- Appender para Saída no Console -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- Substitui o %msg/%message por %maskedMsg para aplicar a máscara nos logs -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{35} - %maskedMsg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Nível raiz de Logging -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+    </root>
+</configuration>

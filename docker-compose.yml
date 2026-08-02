@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Banco de Dados PostgreSQL
+  postgres:
+    image: patrickmoura/3dprintpng-db:latest
+    container_name: dprintpng-db
+    environment:
+      POSTGRES_DB: ecommerce_db
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d ecommerce_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Back-end API (Spring Boot Java 25) - Pronto para uso pós-build
+  ecommerce-api:
+    image: ecommerce-api:latest
+    container_name: 3dprintpng-api
+    build:
+      context: ./ecommerce-api
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      DB_URL: jdbc:postgresql://postgres:5432/ecommerce_db
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      CRYPT_SECRET_KEY: ${CRYPT_SECRET_KEY}
+      ADMIN_FIRST_EMAIL: ${ADMIN_FIRST_EMAIL}
+      CORREIOS_API_URL: ${CORREIOS_API_URL}
+      MERCADO_PAGO_PUBLIC_KEY: ${MERCADO_PAGO_PUBLIC_KEY}
+      MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN}
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ecommerce-net
+
+  # Front-end Web (React + Nginx) - Pronto para uso pós-build
+  ecommerce-web:
+    image: ecommerce-web:latest
+    container_name: 3dprintpng-web
+    build:
+      context: ./ecommerce-web
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - ecommerce-api
+    networks:
+      - ecommerce-net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  ecommerce-net:
+    driver: bridge
