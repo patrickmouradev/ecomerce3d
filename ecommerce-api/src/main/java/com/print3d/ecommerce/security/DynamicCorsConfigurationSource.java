@@ -50,6 +50,10 @@ public class DynamicCorsConfigurationSource implements CorsConfigurationSource {
             // Em caso de falha de conexão ou tabela inexistente na carga inicial, usa fallback de dev
         }
         // Fallback padrão para desenvolvimento (Vite default + portas comuns)
-        return Arrays.asList("http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173");
+        return Arrays.asList(
+            "http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173",
+            "http://localhost:3002", "http://127.0.0.1:3002", "http://192.168.15.10:3002",
+            "http://localhost:3001", "http://127.0.0.1:3001", "http://192.168.15.10:3001"
+        );
     }
 }
