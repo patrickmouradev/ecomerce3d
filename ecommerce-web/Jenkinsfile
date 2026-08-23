@@ -1,0 +1,93 @@
+// ============================================================
+// Jenkinsfile — Pipeline do Frontend (React + Vite + Nginx)
+// Repositório: d:\GIT\Projeto _Loja_3D\ecommerce-web
+// Trigger: Manual / Push
+// ============================================================
+pipeline {
+    agent any
+
+    environment {
+        // Docker
+        DOCKER_IMAGE   = 'patrickmoura/ecommerce-web'
+        CONTAINER_NAME = '3dprintpng-web'
+        APP_PORT       = '3002'
+    }
+
+    stages {
+        stage('🔍 Checkout') {
+            steps {
+                echo '=== Clonando repositório ==='
+                checkout scm
+            }
+        }
+
+        stage('📦 Build Vite') {
+            steps {
+                echo '=== Instalando dependências e compilando o Frontend ==='
+                dir('ecommerce-web') {
+                    sh '''
+                        npm ci --prefer-offline
+                        npm run build
+                    '''
+                }
+            }
+        }
+
+        stage('🐳 Docker Build') {
+            steps {
+                echo '=== Construindo imagem Docker do Frontend ==='
+                dir('ecommerce-web') {
+                    sh '''
+                        docker build \
+                            -t ${DOCKER_IMAGE}:latest \
+                            -t ${DOCKER_IMAGE}:${BUILD_NUMBER} \
+                            .
+                    '''
+                }
+            }
+        }
+
+        stage('🚀 Deploy') {
+            steps {
+                echo '=== Parando container antigo e subindo novo ==='
+                sh '''
+                    # Para e remove o container anterior (se existir)
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm   ${CONTAINER_NAME} || true
+
+                    # Sobe o novo container do Frontend (Nginx na porta 3002 externa, 80 interna) conectado à rede
+                    docker run \
+                        --name ${CONTAINER_NAME} \
+                        --network jenkins_jenkins_net \
+                        --restart=always \
+                        -d \
+                        -p ${APP_PORT}:80 \
+                        ${DOCKER_IMAGE}:latest
+                '''
+            }
+        }
+
+        stage('✅ Health Check') {
+            steps {
+                echo '=== Verificando se o Frontend está respondendo ==='
+                sh '''
+                    sleep 5
+                    curl -f http://${CONTAINER_NAME} || \
+                        (echo "ERRO: Frontend não respondeu!" && exit 1)
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline do Frontend concluída com sucesso! Build #${BUILD_NUMBER}"
+        }
+        failure {
+            echo "❌ Pipeline do Frontend FALHOU no build #${BUILD_NUMBER}."
+        }
+        always {
+            sh 'docker image prune -f || true'
+        }
+    }
+}

@@ -23,13 +23,13 @@ services:
 
   # Back-end API (Spring Boot Java 25) - Pronto para uso pós-build
   ecommerce-api:
-    image: ecommerce-api:latest
+    image: patrickmoura/ecommerce-api:latest
     container_name: 3dprintpng-api
     build:
       context: ./ecommerce-api
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "8088:8088"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       DB_URL: jdbc:postgresql://postgres:5432/ecommerce_db
@@ -40,6 +40,7 @@ services:
       CORREIOS_API_URL: ${CORREIOS_API_URL}
       MERCADO_PAGO_PUBLIC_KEY: ${MERCADO_PAGO_PUBLIC_KEY}
       MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN}
+      SERVER_PORT: 8088
     volumes:
       - ./uploads:/app/uploads
     depends_on:
@@ -50,13 +51,13 @@ services:
 
   # Front-end Web (React + Nginx) - Pronto para uso pós-build
   ecommerce-web:
-    image: ecommerce-web:latest
+    image: patrickmoura/ecommerce-web:latest
     container_name: 3dprintpng-web
     build:
       context: ./ecommerce-web
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      - "3002:80"
     depends_on:
       - ecommerce-api
     networks:

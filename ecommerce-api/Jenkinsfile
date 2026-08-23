@@ -1,0 +1,118 @@
+// ============================================================
+// Jenkinsfile — Pipeline do Backend (Spring Boot)
+// Repositório: d:\GIT\Projeto _Loja_3D\ecommerce-api
+// Trigger: Manual / Push
+// ============================================================
+pipeline {
+    agent any
+
+    // Variáveis sensíveis gerenciadas pelo Jenkins Credentials
+    environment {
+        // Banco de Dados & Configurações do Back-end
+        DB_URL                    = credentials('LOJA_DB_URL')
+        DB_USERNAME               = credentials('LOJA_DB_USERNAME')
+        DB_PASSWORD               = credentials('LOJA_DB_PASSWORD')
+        CRYPT_SECRET_KEY          = credentials('LOJA_CRYPT_SECRET_KEY')
+        ADMIN_FIRST_EMAIL         = credentials('LOJA_ADMIN_FIRST_EMAIL')
+        CORREIOS_API_URL          = credentials('LOJA_CORREIOS_API_URL')
+        MERCADO_PAGO_PUBLIC_KEY   = credentials('LOJA_MERCADO_PAGO_PUBLIC_KEY')
+        MERCADO_PAGO_ACCESS_TOKEN = credentials('LOJA_MERCADO_PAGO_ACCESS_TOKEN')
+
+        // Docker
+        DOCKER_IMAGE   = 'patrickmoura/ecommerce-api'
+        CONTAINER_NAME = '3dprintpng-api'
+        APP_PORT       = '8088'
+    }
+
+    stages {
+        stage('🔍 Checkout') {
+            steps {
+                echo '=== Clonando repositório ==='
+                checkout scm
+            }
+        }
+
+        stage('📦 Build Maven') {
+            steps {
+                echo '=== Compilando e empacotando o Backend ==='
+                dir('ecommerce-api') {
+                    sh '''
+                        export JAVA_HOME=/usr/lib/jvm/zulu25
+                        export PATH=$JAVA_HOME/bin:$PATH
+                        java -version
+                        mvn clean package -DskipTests --no-transfer-progress
+                    '''
+                }
+            }
+        }
+
+        stage('🐳 Docker Build') {
+            steps {
+                echo '=== Construindo imagem Docker do Backend ==='
+                dir('ecommerce-api') {
+                    sh '''
+                        docker build \
+                            --build-arg JAR_FILE=target/*.jar \
+                            -t ${DOCKER_IMAGE}:latest \
+                            -t ${DOCKER_IMAGE}:${BUILD_NUMBER} \
+                            .
+                    '''
+                }
+            }
+        }
+
+        stage('🚀 Deploy') {
+            steps {
+                echo '=== Parando container antigo e subindo novo ==='
+                sh '''
+                    # Para e remove o container anterior (se existir)
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm   ${CONTAINER_NAME} || true
+
+                    # Sobe o novo container conectado à rede do Jenkins (jenkins_jenkins_net)
+                    docker run \
+                        --name ${CONTAINER_NAME} \
+                        --network jenkins_jenkins_net \
+                        --restart=always \
+                        -d \
+                        -p ${APP_PORT}:${APP_PORT} \
+                        -e SPRING_PROFILES_ACTIVE=dev \
+                        -e DB_URL="${DB_URL}" \
+                        -e DB_USERNAME="${DB_USERNAME}" \
+                        -e DB_PASSWORD="${DB_PASSWORD}" \
+                        -e CRYPT_SECRET_KEY="${CRYPT_SECRET_KEY}" \
+                        -e ADMIN_FIRST_EMAIL="${ADMIN_FIRST_EMAIL}" \
+                        -e CORREIOS_API_URL="${CORREIOS_API_URL}" \
+                        -e MERCADO_PAGO_PUBLIC_KEY="${MERCADO_PAGO_PUBLIC_KEY}" \
+                        -e MERCADO_PAGO_ACCESS_TOKEN="${MERCADO_PAGO_ACCESS_TOKEN}" \
+                        -e SERVER_PORT="${APP_PORT}" \
+                        -v /app/uploads:/app/uploads \
+                        ${DOCKER_IMAGE}:latest
+                '''
+            }
+        }
+
+        stage('✅ Health Check') {
+            steps {
+                echo '=== Verificando se o Backend respondeu ao health check ==='
+                sh '''
+                    sleep 20
+                    curl -f http://${CONTAINER_NAME}:${APP_PORT}/v3/api-docs || \
+                        (echo "ERRO: Backend não respondeu ao health check!" && exit 1)
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Pipeline do Backend concluída com sucesso! Build #${BUILD_NUMBER}"
+        }
+        failure {
+            echo "❌ Pipeline do Backend FALHOU no build #${BUILD_NUMBER}."
+        }
+        always {
+            sh 'docker image prune -f || true'
+        }
+    }
+}
