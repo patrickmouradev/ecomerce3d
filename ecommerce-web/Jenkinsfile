@@ -72,7 +72,7 @@ pipeline {
                 echo '=== Verificando se o Frontend está respondendo ==='
                 sh '''
                     sleep 5
-                    curl -f http://${CONTAINER_NAME} || \
+                    curl -f http://localhost:${APP_PORT} || \
                         (echo "ERRO: Frontend não respondeu!" && exit 1)
                 '''
             }
