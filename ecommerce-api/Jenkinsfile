@@ -97,7 +97,7 @@ pipeline {
                 echo '=== Verificando se o Backend respondeu ao health check ==='
                 sh '''
                     sleep 20
-                    curl -f http://localhost:${APP_PORT}/v3/api-docs || \
+                    curl -f http://${CONTAINER_NAME}:${APP_PORT}/v3/api-docs || \
                         (echo "ERRO: Backend não respondeu ao health check!" && exit 1)
                 '''
             }
