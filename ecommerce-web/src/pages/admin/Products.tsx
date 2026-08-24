@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload, Copy } from 'lucide-react';
+
+interface ProductFilament {
+  filamentId: string;
+  filamentLabel: string;
+  weightG: number;
+  pricePerKg?: number;
+}
 
 interface Product {
   id: string;
@@ -8,8 +15,7 @@ interface Product {
   description: string;
   weightG: number;
   printingHours: number;
-  filamentId: string;
-  filamentLabel: string;
+  filaments: ProductFilament[];
   suggestedPrice: number;
   suggestedPriceShoppe: number;
   suggestedPriceParticular: number;
@@ -54,9 +60,10 @@ export const Products: React.FC = () => {
   // Form fields
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [weightG, setWeightG] = useState('');
   const [printingHours, setPrintingHours] = useState('');
-  const [filamentId, setFilamentId] = useState('');
+  const [productFilaments, setProductFilaments] = useState<{ filamentId: string; weightG: string }[]>([
+    { filamentId: '', weightG: '' }
+  ]);
   const [profitMargin, setProfitMargin] = useState('');
   const [salePriceParticular, setSalePriceParticular] = useState('');
   const [salePriceShoppe, setSalePriceShoppe] = useState('');
@@ -86,7 +93,8 @@ export const Products: React.FC = () => {
 
   // Executa o preview do preço sugerido em tempo real ao alterar peso, horas, filamento ou margem
   useEffect(() => {
-    if (weightG && printingHours && filamentId) {
+    const hasValidFilaments = productFilaments.length > 0 && productFilaments.every(f => f.filamentId && parseFloat(f.weightG) > 0);
+    if (hasValidFilaments && printingHours) {
       calculateSuggestedPricePreview();
     } else {
       setSuggestedPriceShoppe(null);
@@ -100,7 +108,7 @@ export const Products: React.FC = () => {
       setShopeeCostsTotal(null);
       setProductionCostWithoutShoppe(null);
     }
-  }, [weightG, printingHours, filamentId, profitMargin]);
+  }, [JSON.stringify(productFilaments), printingHours, profitMargin]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -132,13 +140,14 @@ export const Products: React.FC = () => {
   const calculateSuggestedPricePreview = async () => {
     setLoadingSuggestion(true);
     try {
-      const response = await api.get('/api/admin/products/pricing-preview', {
-        params: {
-          weightG: parseFloat(weightG),
-          printingHours: parseFloat(printingHours),
-          filamentId: filamentId,
-          profitMargin: parseFloat(profitMargin || '0')
-        }
+      const validFilaments = productFilaments.filter(f => f.filamentId && parseFloat(f.weightG) > 0);
+      const response = await api.post('/api/admin/products/pricing-preview', {
+        printingHours: parseFloat(printingHours),
+        profitMargin: parseFloat(profitMargin || '0'),
+        filaments: validFilaments.map(f => ({
+          filamentId: f.filamentId,
+          weightG: parseFloat(f.weightG)
+        }))
       });
       setSuggestedPriceShoppe(response.data.suggestedPriceShoppe);
       setSuggestedPriceParticular(response.data.suggestedPriceParticular);
@@ -194,9 +203,8 @@ export const Products: React.FC = () => {
     setIsEditing(false);
     setName('');
     setDescription('');
-    setWeightG('');
+    setProductFilaments([{ filamentId: '', weightG: '' }]);
     setPrintingHours('');
-    setFilamentId('');
     setProfitMargin('');
     setSalePriceParticular('');
     setSalePriceShoppe('');
@@ -221,9 +229,44 @@ export const Products: React.FC = () => {
     setSelectedId(prod.id);
     setName(prod.name);
     setDescription(prod.description);
-    setWeightG(prod.weightG.toString());
+    setProductFilaments(
+      prod.filaments?.map(pf => ({
+        filamentId: pf.filamentId,
+        weightG: pf.weightG.toString()
+      })) || [{ filamentId: '', weightG: '' }]
+    );
     setPrintingHours(prod.printingHours.toString());
-    setFilamentId(prod.filamentId);
+    setProfitMargin(prod.profitMargin.toString());
+    setSalePriceParticular(prod.salePriceParticular.toString());
+    setSalePriceShoppe(prod.salePriceShoppe.toString());
+    setActive(prod.active);
+    setImagesVideosPaths(prod.imagesVideosPaths || []);
+    setSuggestedPriceShoppe(prod.suggestedPriceShoppe);
+    setSuggestedPriceParticular(prod.suggestedPriceParticular);
+    setProductionCost(prod.productionCost);
+    setNetProfit(prod.netProfit);
+    setNetProfitShoppe(prod.netProfitShoppe);
+    setEnergyCostTotal(prod.energyCostTotal);
+    setPrinterWearTotal(prod.printerWearTotal);
+    setPackagingCost(prod.packagingCost);
+    setShopeeCostsTotal(prod.shopeeCostsTotal);
+    setProductionCostWithoutShoppe(prod.productionCostWithoutShoppe);
+    setFormError('');
+    setModalOpen(true);
+  };
+
+  const openDuplicateModal = (prod: Product) => {
+    setIsEditing(false);
+    setSelectedId(null);
+    setName(prod.name + ' (Cópia)');
+    setDescription(prod.description);
+    setProductFilaments(
+      prod.filaments?.map(pf => ({
+        filamentId: pf.filamentId,
+        weightG: pf.weightG.toString()
+      })) || [{ filamentId: '', weightG: '' }]
+    );
+    setPrintingHours(prod.printingHours.toString());
     setProfitMargin(prod.profitMargin.toString());
     setSalePriceParticular(prod.salePriceParticular.toString());
     setSalePriceShoppe(prod.salePriceShoppe.toString());
@@ -247,8 +290,9 @@ export const Products: React.FC = () => {
     e.preventDefault();
     setFormError('');
 
-    if (!name.trim() || !weightG.trim() || !printingHours.trim() || !filamentId.trim() || !salePriceParticular.trim() || !salePriceShoppe.trim() || !profitMargin.trim()) {
-      setFormError('Preencha todos os campos obrigatórios');
+    const hasValidFilaments = productFilaments.length > 0 && productFilaments.every(f => f.filamentId && parseFloat(f.weightG) > 0);
+    if (!name.trim() || !printingHours.trim() || !hasValidFilaments || !salePriceParticular.trim() || !salePriceShoppe.trim() || !profitMargin.trim()) {
+      setFormError('Preencha todos os campos obrigatórios e garanta que todos os filamentos possuem peso válido');
       return;
     }
 
@@ -273,9 +317,11 @@ export const Products: React.FC = () => {
     const payload = {
       name: name.trim(),
       description: description.trim(),
-      weightG: parseFloat(weightG),
       printingHours: parseFloat(printingHours),
-      filamentId: filamentId,
+      filaments: productFilaments.map(f => ({
+        filamentId: f.filamentId,
+        weightG: parseFloat(f.weightG)
+      })),
       profitMargin: margin,
       salePriceParticular: priceParticular,
       salePriceShoppe: priceShoppe,
@@ -378,7 +424,9 @@ export const Products: React.FC = () => {
               {products.map((prod) => (
                 <tr key={prod.id} style={{ opacity: prod.active ? 1 : 0.5 }}>
                   <td style={{ fontWeight: 600 }}>{prod.name}</td>
-                  <td style={{ fontSize: '0.85rem' }}>{prod.filamentLabel}</td>
+                  <td style={{ fontSize: '0.85rem' }}>
+                    {prod.filaments?.map(f => f.filamentLabel).join(', ') || 'Sem filamentos'}
+                  </td>
                   <td>{prod.weightG} g</td>
                   <td>{prod.printingHours} h</td>
                   <td style={{ color: 'var(--text-secondary)' }}>
@@ -408,6 +456,14 @@ export const Products: React.FC = () => {
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: '0.5rem', float: 'right' }}>
+                      <button 
+                        onClick={() => openDuplicateModal(prod)}
+                        className="btn btn-secondary" 
+                        title="Duplicar Produto"
+                        style={{ padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}
+                      >
+                        <Copy size={14} />
+                      </button>
                       <button 
                         onClick={() => openEditModal(prod)}
                         className="btn btn-secondary" 
@@ -473,18 +529,71 @@ export const Products: React.FC = () => {
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Peso da Peça (g)</label>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    value={weightG} 
-                    onChange={(e) => setWeightG(e.target.value)} 
-                    className="form-input" 
-                    required 
-                  />
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label className="form-label">Filamentos Utilizados</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {productFilaments.map((pf, index) => (
+                    <div key={index} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <select 
+                        value={pf.filamentId} 
+                        onChange={(e) => {
+                          const newFils = [...productFilaments];
+                          newFils[index].filamentId = e.target.value;
+                          setProductFilaments(newFils);
+                        }} 
+                        className="form-input"
+                        style={{ flex: 2 }}
+                        required
+                      >
+                        <option value="">Selecione o Filamento...</option>
+                        {filaments.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.material} - {f.brand} ({f.color}) - R$ {f.pricePerKg}/Kg
+                          </option>
+                        ))}
+                      </select>
+                      
+                      <input 
+                        type="number" 
+                        step="0.001" 
+                        placeholder="Peso (g)"
+                        value={pf.weightG} 
+                        onChange={(e) => {
+                          const newFils = [...productFilaments];
+                          newFils[index].weightG = e.target.value;
+                          setProductFilaments(newFils);
+                        }} 
+                        className="form-input"
+                        style={{ flex: 1 }}
+                        required 
+                      />
+
+                      {productFilaments.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProductFilaments(productFilaments.filter((_, i) => i !== index));
+                          }}
+                          className="btn btn-danger"
+                          style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setProductFilaments([...productFilaments, { filamentId: '', weightG: '' }])}
+                    className="btn btn-secondary"
+                    style={{ alignSelf: 'flex-start', marginTop: '0.5rem', fontSize: '0.85rem' }}
+                  >
+                    + Adicionar Filamento
+                  </button>
                 </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div className="form-group" style={{ flex: 1 }}>
                   <label className="form-label">Horas de Impressão (h)</label>
                   <input 
@@ -496,23 +605,12 @@ export const Products: React.FC = () => {
                     required 
                   />
                 </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Filamento Utilizado</label>
-                <select 
-                  value={filamentId} 
-                  onChange={(e) => setFilamentId(e.target.value)} 
-                  className="form-input"
-                  required
-                >
-                  <option value="">Selecione o Filamento...</option>
-                  {filaments.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.material} - {f.brand} ({f.color}) - R$ {f.pricePerKg}/Kg
-                    </option>
-                  ))}
-                </select>
+                <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Peso Total Calculado</span>
+                  <span style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 600, marginTop: '0.25rem' }}>
+                    {productFilaments.reduce((acc, f) => acc + (parseFloat(f.weightG) || 0), 0).toFixed(2)} g
+                  </span>
+                </div>
               </div>
 
               <div className="form-group">
@@ -529,7 +627,7 @@ export const Products: React.FC = () => {
               </div>
 
               {/* Box de Cálculo Inteligente em Tempo Real */}
-              {(weightG && printingHours && filamentId) && (
+              {(productFilaments.length > 0 && productFilaments.every(f => f.filamentId && parseFloat(f.weightG) > 0) && printingHours) && (
                 <div style={{
                   background: 'rgba(0,240,255,0.03)',
                   border: '1px solid var(--primary-glow-strong)',

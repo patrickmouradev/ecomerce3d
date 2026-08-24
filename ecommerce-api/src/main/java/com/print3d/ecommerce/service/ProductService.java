@@ -2,8 +2,10 @@ package com.print3d.ecommerce.service;
 
 import com.print3d.ecommerce.dto.PricingResult;
 import com.print3d.ecommerce.dto.ProductDto;
+import com.print3d.ecommerce.dto.ProductFilamentDto;
 import com.print3d.ecommerce.model.Filament;
 import com.print3d.ecommerce.model.Product;
+import com.print3d.ecommerce.model.ProductFilament;
 import com.print3d.ecommerce.repository.FilamentRepository;
 import com.print3d.ecommerce.repository.ProductRepository;
 import com.print3d.ecommerce.repository.SystemParameterRepository;
@@ -71,21 +73,30 @@ public class ProductService {
 
     @Transactional
     public ProductDto create(ProductDto dto) {
-        Filament filament = filamentRepository.findById(dto.getFilamentId())
-                .orElseThrow(() -> new RuntimeException("Filamento não encontrado"));
-
         Product product = Product.builder()
                 .name(dto.getName().trim())
                 .description(dto.getDescription())
-                .weightG(dto.getWeightG())
                 .printingHours(dto.getPrintingHours())
-                .filament(filament)
                 .profitMargin(dto.getProfitMargin())
                 .salePriceParticular(dto.getSalePriceParticular())
                 .salePriceShoppe(dto.getSalePriceShoppe())
                 .active(dto.getActive() != null ? dto.getActive() : true)
                 .imagesVideosPaths(dto.getImagesVideosPaths() != null ? dto.getImagesVideosPaths() : new ArrayList<>())
                 .build();
+
+        if (dto.getFilaments() != null) {
+            List<ProductFilament> pfList = new ArrayList<>();
+            for (com.print3d.ecommerce.dto.ProductFilamentDto pfDto : dto.getFilaments()) {
+                Filament filament = filamentRepository.findById(pfDto.getFilamentId())
+                        .orElseThrow(() -> new RuntimeException("Filamento não encontrado"));
+                pfList.add(ProductFilament.builder()
+                        .product(product)
+                        .filament(filament)
+                        .weightG(pfDto.getWeightG())
+                        .build());
+            }
+            product.setFilaments(pfList);
+        }
 
         Product saved = productRepository.save(product);
         return convertToDto(saved);
@@ -96,14 +107,9 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
 
-        Filament filament = filamentRepository.findById(dto.getFilamentId())
-                .orElseThrow(() -> new RuntimeException("Filamento não encontrado"));
-
         product.setName(dto.getName().trim());
         product.setDescription(dto.getDescription());
-        product.setWeightG(dto.getWeightG());
         product.setPrintingHours(dto.getPrintingHours());
-        product.setFilament(filament);
         product.setProfitMargin(dto.getProfitMargin());
         product.setSalePriceParticular(dto.getSalePriceParticular());
         product.setSalePriceShoppe(dto.getSalePriceShoppe());
@@ -112,6 +118,19 @@ public class ProductService {
         }
         if (dto.getImagesVideosPaths() != null) {
             product.setImagesVideosPaths(dto.getImagesVideosPaths());
+        }
+
+        product.getFilaments().clear();
+        if (dto.getFilaments() != null) {
+            for (com.print3d.ecommerce.dto.ProductFilamentDto pfDto : dto.getFilaments()) {
+                Filament filament = filamentRepository.findById(pfDto.getFilamentId())
+                        .orElseThrow(() -> new RuntimeException("Filamento não encontrado"));
+                product.getFilaments().add(ProductFilament.builder()
+                        .product(product)
+                        .filament(filament)
+                        .weightG(pfDto.getWeightG())
+                        .build());
+            }
         }
 
         Product updated = productRepository.save(product);
@@ -130,15 +149,26 @@ public class ProductService {
      * Calcula e retorna o preço sugerido, custo de produção e lucro líquido para o controlador antes de salvar (API auxiliar da calculadora)
      */
     @Transactional(readOnly = true)
-    public PricingResult getPricingPreview(BigDecimal weightG, BigDecimal printingHours, UUID filamentId, BigDecimal profitMargin) {
-        Filament filament = filamentRepository.findById(filamentId)
-                .orElseThrow(() -> new RuntimeException("Filamento não encontrado"));
+    public PricingResult getPricingPreview(com.print3d.ecommerce.dto.ProductPricingPreviewRequestDto requestDto) {
+        List<ProductFilament> pfList = new ArrayList<>();
         Product product = Product.builder()
-                .weightG(weightG)
-                .printingHours(printingHours)
-                .filament(filament)
-                .profitMargin(profitMargin)
+                .printingHours(requestDto.getPrintingHours())
+                .profitMargin(requestDto.getProfitMargin())
                 .build();
+
+        if (requestDto.getFilaments() != null) {
+            for (com.print3d.ecommerce.dto.ProductFilamentDto pfDto : requestDto.getFilaments()) {
+                Filament filament = filamentRepository.findById(pfDto.getFilamentId())
+                        .orElseThrow(() -> new RuntimeException("Filamento não encontrado"));
+                pfList.add(ProductFilament.builder()
+                        .product(product)
+                        .filament(filament)
+                        .weightG(pfDto.getWeightG())
+                        .build());
+            }
+        }
+        product.setFilaments(pfList);
+
         return pricingCalculatorService.calculatePricing(product);
     }
 
@@ -182,11 +212,26 @@ public class ProductService {
     }
 
     private ProductDto convertToDto(Product product) {
-        String filamentLabel = String.format("%s - %s (%s)",
-                product.getFilament().getMaterial(),
-                product.getFilament().getBrand(),
-                product.getFilament().getColor()
-        );
+        List<ProductFilamentDto> filamentsDto = new ArrayList<>();
+        BigDecimal totalWeight = BigDecimal.ZERO;
+        if (product.getFilaments() != null) {
+            for (ProductFilament pf : product.getFilaments()) {
+                String label = String.format("%s - %s (%s)",
+                        pf.getFilament().getMaterial(),
+                        pf.getFilament().getBrand(),
+                        pf.getFilament().getColor()
+                );
+                filamentsDto.add(ProductFilamentDto.builder()
+                        .filamentId(pf.getFilament().getId())
+                        .filamentLabel(label)
+                        .weightG(pf.getWeightG())
+                        .pricePerKg(pf.getFilament().getPricePerKg())
+                        .build());
+                if (pf.getWeightG() != null) {
+                    totalWeight = totalWeight.add(pf.getWeightG());
+                }
+            }
+        }
 
         com.print3d.ecommerce.dto.PricingResult pricing = pricingCalculatorService.calculatePricing(product);
 
@@ -194,10 +239,9 @@ public class ProductService {
                 .id(product.getId())
                 .name(product.getName())
                 .description(product.getDescription())
-                .weightG(product.getWeightG())
+                .weightG(totalWeight)
                 .printingHours(product.getPrintingHours())
-                .filamentId(product.getFilament().getId())
-                .filamentLabel(filamentLabel)
+                .filaments(filamentsDto)
                 .productionCost(pricing.getProductionCost())
                 .suggestedPrice(pricing.getSuggestedPrice())
                 .suggestedPriceShoppe(pricing.getSuggestedPriceShoppe())

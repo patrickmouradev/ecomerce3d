@@ -8,7 +8,12 @@ interface Product {
   name: string;
   description: string;
   salePriceParticular: number;
-  filamentLabel: string;
+  filaments?: {
+    filamentId: string;
+    filamentLabel: string;
+    weightG: number;
+    pricePerKg: number;
+  }[];
   imagesVideosPaths: string[];
 }
 
@@ -278,7 +283,9 @@ export const Catalog: React.FC = () => {
                     padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600,
                     border: '1px solid var(--border-color)'
                   }}>
-                    {product.filamentLabel.split(' - ')[0]}
+                    {product.filaments && product.filaments.length > 0 
+                      ? product.filaments.map(f => f.filamentLabel ? f.filamentLabel.split(' - ')[0] : 'Material').join(', ')
+                      : 'Sem Insumo'}
                   </span>
                 </div>
 

@@ -13,12 +13,12 @@ import java.util.UUID;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, UUID> {
 
-    @Query("SELECT p FROM Product p JOIN FETCH p.filament f WHERE p.active = true " +
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.filaments pf LEFT JOIN FETCH pf.filament f WHERE p.active = true " +
            "AND (:query IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:query AS string), '%')) " +
            "OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:query AS string), '%')))")
     List<Product> searchCatalog(@Param("query") String query, Sort sort);
 
-    @Query("SELECT p FROM Product p JOIN FETCH p.filament f WHERE " +
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.filaments pf LEFT JOIN FETCH pf.filament f WHERE " +
            "(:query IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:query AS string), '%')) " +
            "OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:query AS string), '%')))")
     List<Product> searchAll(@Param("query") String query, Sort sort);

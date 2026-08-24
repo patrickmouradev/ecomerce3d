@@ -3,6 +3,8 @@ import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import Catalog from './pages/Catalog';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Filaments from './pages/admin/Filaments';
 import Params from './pages/admin/Params';
 import BasicProductionCosts from './pages/admin/BasicProductionCosts';
@@ -21,6 +23,8 @@ function App() {
               {/* Rota Pública do Catálogo */}
               <Route path="/" element={<Catalog />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* Rotas Administrativas Protegidas */}
               <Route 

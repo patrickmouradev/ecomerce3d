@@ -29,15 +29,12 @@ public class Product {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "weight_g", nullable = false, precision = 10, scale = 2)
-    private BigDecimal weightG;
-
     @Column(name = "printing_hours", nullable = false, precision = 10, scale = 2)
     private BigDecimal printingHours;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "filament_id", nullable = false)
-    private Filament filament;
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ProductFilament> filaments = new java.util.ArrayList<>();
 
     @Column(name = "profit_margin", nullable = false, precision = 10, scale = 2)
     private BigDecimal profitMargin;

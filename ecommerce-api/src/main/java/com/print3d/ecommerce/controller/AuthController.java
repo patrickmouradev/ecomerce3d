@@ -146,4 +146,18 @@ public class AuthController {
         }
         return "USUARIO";
     }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Solicita a redefinição de senha enviando um e-mail com link de recuperação")
+    public ResponseEntity<java.util.Map<String, String>> forgotPassword(@RequestParam String email) {
+        authService.generatePasswordResetToken(email.trim());
+        return ResponseEntity.ok(java.util.Map.of("message", "E-mail de recuperação enviado com sucesso"));
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Redefine a senha do usuário utilizando o token recebido por e-mail")
+    public ResponseEntity<java.util.Map<String, String>> resetPassword(@RequestParam String token, @RequestParam String newPassword) {
+        authService.resetPassword(token.trim(), newPassword);
+        return ResponseEntity.ok(java.util.Map.of("message", "Senha redefinida com sucesso"));
+    }
 }

@@ -25,18 +25,14 @@ public class ProductDto {
 
     private String description;
 
-    @NotNull(message = "Peso é obrigatório")
-    @DecimalMin(value = "0.01", message = "O peso deve ser maior que zero")
-    private BigDecimal weightG;
+    private BigDecimal weightG; // Calculado dinamicamente pela soma dos pesos dos filamentos
 
     @NotNull(message = "Horas de impressão é obrigatório")
     @DecimalMin(value = "0.01", message = "As horas devem ser maiores que zero")
     private BigDecimal printingHours;
 
-    @NotNull(message = "Filamento é obrigatório")
-    private UUID filamentId;
-
-    private String filamentLabel; // Ex: PLA - 3D Lab (Vermelho)
+    @NotNull(message = "Lista de filamentos é obrigatória")
+    private List<ProductFilamentDto> filaments;
 
     private BigDecimal suggestedPrice; // Calculado pelo sistema dinamicamente
     private BigDecimal suggestedPriceShoppe;

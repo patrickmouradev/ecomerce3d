@@ -88,18 +88,13 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/api/admin/products/pricing-preview")
-    @Operation(summary = "Calcula em tempo real os custos, sugestão de preço e lucro líquido baseados em peso, horas, filamento e margem de lucro")
+    @PostMapping("/api/admin/products/pricing-preview")
+    @Operation(summary = "Calcula em tempo real os custos, sugestão de preço e lucro líquido baseados em múltiplos filamentos")
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<com.print3d.ecommerce.dto.PricingResult> getPricingPreview(
-            @RequestParam BigDecimal weightG,
-            @RequestParam BigDecimal printingHours,
-            @RequestParam UUID filamentId,
-            @RequestParam BigDecimal profitMargin) {
+            @Valid @RequestBody com.print3d.ecommerce.dto.ProductPricingPreviewRequestDto requestDto) {
         
-        com.print3d.ecommerce.dto.PricingResult result = productService.getPricingPreview(
-                weightG, printingHours, filamentId, profitMargin
-        );
+        com.print3d.ecommerce.dto.PricingResult result = productService.getPricingPreview(requestDto);
         return ResponseEntity.ok(result);
     }
 

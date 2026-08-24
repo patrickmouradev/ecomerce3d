@@ -43,7 +43,7 @@ export const Login: React.FC = () => {
 
   const handleForgotPassword = (e: React.MouseEvent) => {
     e.preventDefault();
-    alert('Recuperação de senha será implementada em breve! (TODO)');
+    navigate('/forgot-password');
   };
 
   return (
