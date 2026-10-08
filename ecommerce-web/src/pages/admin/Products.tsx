@@ -52,18 +52,24 @@ export const Products: React.FC = () => {
   const [sortBy, setSortBy] = useState('name');
   const [direction, setDirection] = useState('asc');
 
-  // Modal
+  // Modal de Produto
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Modal de Seleção de Filamentos
+  const [isFilamentModalOpen, setIsFilamentModalOpen] = useState(false);
+  const [filamentSearchQuery, setFilamentSearchQuery] = useState('');
+  const [filamentMaterialFilter, setFilamentMaterialFilter] = useState('');
+  const [selectedFilamentId, setSelectedFilamentId] = useState<string | null>(null);
+  const [selectedFilamentWeight, setSelectedFilamentWeight] = useState('');
+  const [filamentModalError, setFilamentModalError] = useState('');
 
   // Form fields
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [printingHours, setPrintingHours] = useState('');
-  const [productFilaments, setProductFilaments] = useState<{ filamentId: string; weightG: string }[]>([
-    { filamentId: '', weightG: '' }
-  ]);
+  const [productFilaments, setProductFilaments] = useState<{ filamentId: string; weightG: string }[]>([]);
   const [profitMargin, setProfitMargin] = useState('');
   const [salePriceParticular, setSalePriceParticular] = useState('');
   const [salePriceShoppe, setSalePriceShoppe] = useState('');
@@ -203,7 +209,7 @@ export const Products: React.FC = () => {
     setIsEditing(false);
     setName('');
     setDescription('');
-    setProductFilaments([{ filamentId: '', weightG: '' }]);
+    setProductFilaments([]);
     setPrintingHours('');
     setProfitMargin('');
     setSalePriceParticular('');
@@ -233,7 +239,7 @@ export const Products: React.FC = () => {
       prod.filaments?.map(pf => ({
         filamentId: pf.filamentId,
         weightG: pf.weightG.toString()
-      })) || [{ filamentId: '', weightG: '' }]
+      })) || []
     );
     setPrintingHours(prod.printingHours.toString());
     setProfitMargin(prod.profitMargin.toString());
@@ -264,7 +270,7 @@ export const Products: React.FC = () => {
       prod.filaments?.map(pf => ({
         filamentId: pf.filamentId,
         weightG: pf.weightG.toString()
-      })) || [{ filamentId: '', weightG: '' }]
+      })) || []
     );
     setPrintingHours(prod.printingHours.toString());
     setProfitMargin(prod.profitMargin.toString());
@@ -286,13 +292,61 @@ export const Products: React.FC = () => {
     setModalOpen(true);
   };
 
+  // Funções do Modal de Seleção de Filamentos
+  const openFilamentModal = () => {
+    setFilamentSearchQuery('');
+    setFilamentMaterialFilter('');
+    setSelectedFilamentId(null);
+    setSelectedFilamentWeight('');
+    setFilamentModalError('');
+    setIsFilamentModalOpen(true);
+  };
+
+  const handleAddFilamentFromModal = () => {
+    if (!selectedFilamentId) {
+      setFilamentModalError('Por favor, selecione um filamento na tabela.');
+      return;
+    }
+    const weight = parseFloat(selectedFilamentWeight);
+    if (isNaN(weight) || weight <= 0) {
+      setFilamentModalError('Informe um peso (g) válido maior que zero.');
+      return;
+    }
+
+    const existingIdx = productFilaments.findIndex(pf => pf.filamentId === selectedFilamentId);
+    if (existingIdx >= 0) {
+      const updated = [...productFilaments];
+      updated[existingIdx] = { filamentId: selectedFilamentId, weightG: selectedFilamentWeight };
+      setProductFilaments(updated);
+    } else {
+      setProductFilaments([
+        ...productFilaments.filter(pf => pf.filamentId),
+        { filamentId: selectedFilamentId, weightG: selectedFilamentWeight }
+      ]);
+    }
+
+    setIsFilamentModalOpen(false);
+  };
+
+  const filteredFilamentsInModal = filaments.filter(f => {
+    const query = filamentSearchQuery.toLowerCase();
+    const matchesSearch = 
+      f.material.toLowerCase().includes(query) ||
+      f.brand.toLowerCase().includes(query) ||
+      f.color.toLowerCase().includes(query);
+    
+    const matchesMaterial = !filamentMaterialFilter || f.material === filamentMaterialFilter;
+
+    return matchesSearch && matchesMaterial;
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
     const hasValidFilaments = productFilaments.length > 0 && productFilaments.every(f => f.filamentId && parseFloat(f.weightG) > 0);
     if (!name.trim() || !printingHours.trim() || !hasValidFilaments || !salePriceParticular.trim() || !salePriceShoppe.trim() || !profitMargin.trim()) {
-      setFormError('Preencha todos os campos obrigatórios e garanta que todos os filamentos possuem peso válido');
+      setFormError('Preencha todos os campos obrigatórios e adicione ao menos um filamento com peso válido');
       return;
     }
 
@@ -532,63 +586,92 @@ export const Products: React.FC = () => {
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                 <label className="form-label">Filamentos Utilizados</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {productFilaments.map((pf, index) => (
-                    <div key={index} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <select 
-                        value={pf.filamentId} 
-                        onChange={(e) => {
-                          const newFils = [...productFilaments];
-                          newFils[index].filamentId = e.target.value;
-                          setProductFilaments(newFils);
-                        }} 
-                        className="form-input"
-                        style={{ flex: 2 }}
-                        required
-                      >
-                        <option value="">Selecione o Filamento...</option>
-                        {filaments.map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {f.material} - {f.brand} ({f.color}) - R$ {f.pricePerKg}/Kg
-                          </option>
-                        ))}
-                      </select>
-                      
-                      <input 
-                        type="number" 
-                        step="0.001" 
-                        placeholder="Peso (g)"
-                        value={pf.weightG} 
-                        onChange={(e) => {
-                          const newFils = [...productFilaments];
-                          newFils[index].weightG = e.target.value;
-                          setProductFilaments(newFils);
-                        }} 
-                        className="form-input"
-                        style={{ flex: 1 }}
-                        required 
-                      />
-
-                      {productFilaments.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProductFilaments(productFilaments.filter((_, i) => i !== index));
-                          }}
-                          className="btn btn-danger"
-                          style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
+                  {productFilaments.filter(pf => pf.filamentId).length === 0 ? (
+                    <div style={{
+                      padding: '1rem',
+                      textAlign: 'center',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px dashed var(--border-color)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.85rem'
+                    }}>
+                      Nenhum filamento adicionado ainda. Clique no botão abaixo para selecionar.
                     </div>
-                  ))}
+                  ) : (
+                    productFilaments.filter(pf => pf.filamentId).map((pf, index) => {
+                      const fil = filaments.find(f => f.id === pf.filamentId);
+                      const weightNum = parseFloat(pf.weightG) || 0;
+                      const calculatedCost = fil ? (weightNum * fil.pricePerKg / 1000) : 0;
+
+                      return (
+                        <div key={index} style={{
+                          display: 'flex',
+                          gap: '0.75rem',
+                          alignItems: 'center',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.6rem 0.8rem'
+                        }}>
+                          <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#fff' }}>
+                              {fil ? `${fil.material} - ${fil.brand}` : 'Filamento Selecionado'}
+                            </span>
+                            <span style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>
+                              {fil ? `${fil.color} (R$ ${fil.pricePerKg}/Kg)` : ''}
+                            </span>
+                          </div>
+
+                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <input 
+                              type="number" 
+                              step="0.001" 
+                              placeholder="Peso (g)"
+                              value={pf.weightG} 
+                              onChange={(e) => {
+                                const newFils = [...productFilaments];
+                                const realIdx = productFilaments.findIndex(item => item.filamentId === pf.filamentId);
+                                if (realIdx >= 0) {
+                                  newFils[realIdx].weightG = e.target.value;
+                                  setProductFilaments(newFils);
+                                }
+                              }} 
+                              className="form-input"
+                              style={{ fontSize: '0.85rem', padding: '0.4rem 0.6rem' }}
+                              required 
+                            />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>g</span>
+                          </div>
+
+                          <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, minWidth: '70px', textAlign: 'right' }}>
+                            R$ {calculatedCost.toFixed(2)}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProductFilaments(productFilaments.filter(item => item.filamentId !== pf.filamentId));
+                            }}
+                            className="btn btn-danger"
+                            style={{ padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Remover filamento"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => setProductFilaments([...productFilaments, { filamentId: '', weightG: '' }])}
+                    onClick={openFilamentModal}
                     className="btn btn-secondary"
-                    style={{ alignSelf: 'flex-start', marginTop: '0.5rem', fontSize: '0.85rem' }}
+                    style={{ alignSelf: 'flex-start', marginTop: '0.5rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                   >
-                    + Adicionar Filamento
+                    <Plus size={14} />
+                    Adicionar Filamento
                   </button>
                 </div>
               </div>
@@ -797,6 +880,226 @@ export const Products: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Seleção de Filamento */}
+      {isFilamentModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '1rem'
+        }}>
+          <div className="glass-panel" style={{
+            width: '100%',
+            maxWidth: '680px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden',
+            border: '1px solid var(--primary-glow-strong)',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: 'rgba(255, 255, 255, 0.02)'
+            }}>
+              <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                <Plus size={18} style={{ color: 'var(--primary)' }} />
+                Selecionar Filamento
+              </h3>
+              <button 
+                onClick={() => setIsFilamentModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              
+              {/* Filtros */}
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 2, minWidth: '200px' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Buscar por marca, material ou cor..." 
+                    value={filamentSearchQuery}
+                    onChange={(e) => setFilamentSearchQuery(e.target.value)}
+                    className="form-input"
+                    style={{ paddingLeft: '2.25rem', fontSize: '0.875rem' }}
+                  />
+                  <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                </div>
+
+                <div style={{ flex: 1, minWidth: '140px' }}>
+                  <select
+                    value={filamentMaterialFilter}
+                    onChange={(e) => setFilamentMaterialFilter(e.target.value)}
+                    className="form-input"
+                    style={{ fontSize: '0.875rem' }}
+                  >
+                    <option value="">Todos os Materiais</option>
+                    {Array.from(new Set(filaments.map(f => f.material))).map(mat => (
+                      <option key={mat} value={mat}>{mat}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Tabela de Filamentos */}
+              <div className="table-container" style={{ maxHeight: '250px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>
+                <table className="premium-table" style={{ fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '0.6rem 0.75rem' }}>Material</th>
+                      <th style={{ padding: '0.6rem 0.75rem' }}>Marca</th>
+                      <th style={{ padding: '0.6rem 0.75rem' }}>Cor</th>
+                      <th style={{ padding: '0.6rem 0.75rem' }}>Preço/Kg</th>
+                      <th style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>Selecionar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredFilamentsInModal.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                          Nenhum filamento encontrado com os filtros aplicados.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredFilamentsInModal.map((f) => {
+                        const isSelected = selectedFilamentId === f.id;
+                        return (
+                          <tr 
+                            key={f.id} 
+                            onClick={() => {
+                              setSelectedFilamentId(f.id);
+                              setFilamentModalError('');
+                            }}
+                            style={{ 
+                              cursor: 'pointer',
+                              background: isSelected ? 'rgba(0, 240, 255, 0.1)' : undefined,
+                              borderLeft: isSelected ? '3px solid var(--primary)' : '3px solid transparent'
+                            }}
+                          >
+                            <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{f.material}</td>
+                            <td style={{ padding: '0.6rem 0.75rem' }}>{f.brand}</td>
+                            <td style={{ padding: '0.6rem 0.75rem' }}>{f.color}</td>
+                            <td style={{ padding: '0.6rem 0.75rem', color: 'var(--primary)', fontWeight: 600 }}>R$ {f.pricePerKg}/Kg</td>
+                            <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>
+                              <div style={{
+                                width: '18px',
+                                height: '18px',
+                                borderRadius: '50%',
+                                border: isSelected ? '5px solid var(--primary)' : '2px solid var(--border-color)',
+                                margin: '0 auto',
+                                transition: 'all 0.2s'
+                              }} />
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Painel do Filamento Selecionado & Entrada de Peso */}
+              {selectedFilamentId && (
+                <div style={{
+                  background: 'rgba(0, 240, 255, 0.04)',
+                  border: '1px solid var(--primary-glow-strong)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem'
+                }}>
+                  {(() => {
+                    const sel = filaments.find(f => f.id === selectedFilamentId);
+                    if (!sel) return null;
+                    return (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff' }}>
+                            {sel.material} - {sel.brand} ({sel.color})
+                          </span>
+                          <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
+                            R$ {sel.pricePerKg}/Kg
+                          </span>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                            Quantidade / Peso Utilizado na Peça (g):
+                          </label>
+                          <input 
+                            type="number"
+                            step="0.001"
+                            placeholder="Ex: 150"
+                            value={selectedFilamentWeight}
+                            onChange={(e) => {
+                              setSelectedFilamentWeight(e.target.value);
+                              setFilamentModalError('');
+                            }}
+                            className="form-input"
+                            style={{ fontSize: '0.9rem' }}
+                            autoFocus
+                          />
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {filamentModalError && (
+                <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>{filamentModalError}</p>
+              )}
+
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '1rem 1.5rem',
+              borderTop: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              background: 'rgba(0,0,0,0.2)'
+            }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => setIsFilamentModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-primary"
+                onClick={handleAddFilamentFromModal}
+              >
+                Salvar e Adicionar
+              </button>
+            </div>
           </div>
         </div>
       )}
