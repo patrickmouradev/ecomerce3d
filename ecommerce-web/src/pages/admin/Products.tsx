@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload, Copy } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload, Copy, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 
 interface ProductFilament {
   filamentId: string;
@@ -79,18 +79,20 @@ export const Products: React.FC = () => {
   // Calculadora
   const [suggestedPriceShoppe, setSuggestedPriceShoppe] = useState<number | null>(null);
   const [suggestedPriceParticular, setSuggestedPriceParticular] = useState<number | null>(null);
-  const [productionCost, setProductionCost] = useState<number | null>(null);
+  const [, setProductionCost] = useState<number | null>(null);
   const [netProfit, setNetProfit] = useState<number | null>(null);
   const [netProfitShoppe, setNetProfitShoppe] = useState<number | null>(null);
   const [energyCostTotal, setEnergyCostTotal] = useState<number | null>(null);
   const [printerWearTotal, setPrinterWearTotal] = useState<number | null>(null);
   const [packagingCost, setPackagingCost] = useState<number | null>(null);
-  const [shopeeCostsTotal, setShopeeCostsTotal] = useState<number | null>(null);
+  const [, setShopeeCostsTotal] = useState<number | null>(null);
   const [productionCostWithoutShoppe, setProductionCostWithoutShoppe] = useState<number | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   
   const [formError, setFormError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
+  const [draggedMediaIndex, setDraggedMediaIndex] = useState<number | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -185,24 +187,73 @@ export const Products: React.FC = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const fileList = Array.from(files);
     setUploading(true);
-    const formData = new FormData();
-    formData.append('file', files[0]);
+    setUploadProgress(`Enviando ${fileList.length} arquivo(s)...`);
 
     try {
-      const response = await api.post('/api/admin/products/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+      const uploadPromises = fileList.map(async (file, index) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await api.post('/api/admin/products/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        return { index, fileUrl: response.data.fileUrl as string };
       });
-      const fileUrl = response.data.fileUrl;
-      setImagesVideosPaths((prev) => [...prev, fileUrl]);
+
+      const results = await Promise.all(uploadPromises);
+      results.sort((a, b) => a.index - b.index);
+      const newUrls = results.map(r => r.fileUrl);
+
+      setImagesVideosPaths((prev) => [...prev, ...newUrls]);
     } catch (err) {
-      console.error("Erro ao enviar arquivo", err);
-      alert("Falha ao fazer upload do arquivo");
+      console.error("Erro ao enviar arquivos", err);
+      alert("Falha ao fazer upload de um ou mais arquivos");
     } finally {
       setUploading(false);
+      setUploadProgress('');
+      e.target.value = '';
     }
+  };
+
+  const moveMedia = (index: number, direction: 'left' | 'right') => {
+    const targetIndex = direction === 'left' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= imagesVideosPaths.length) return;
+    const newPaths = [...imagesVideosPaths];
+    const temp = newPaths[index];
+    newPaths[index] = newPaths[targetIndex];
+    newPaths[targetIndex] = temp;
+    setImagesVideosPaths(newPaths);
+  };
+
+  const setAsCover = (index: number) => {
+    if (index === 0) return;
+    const newPaths = [...imagesVideosPaths];
+    const [selected] = newPaths.splice(index, 1);
+    newPaths.unshift(selected);
+    setImagesVideosPaths(newPaths);
+  };
+
+  const handleMediaDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedMediaIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleMediaDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleMediaDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedMediaIndex === null || draggedMediaIndex === targetIndex) return;
+    const newPaths = [...imagesVideosPaths];
+    const [draggedItem] = newPaths.splice(draggedMediaIndex, 1);
+    newPaths.splice(targetIndex, 0, draggedItem);
+    setImagesVideosPaths(newPaths);
+    setDraggedMediaIndex(null);
   };
 
   const openCreateModal = () => {
@@ -741,61 +792,49 @@ export const Products: React.FC = () => {
                   gap: '0.75rem'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Valor Custo Energia:</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Custo Energia:</span>
                     <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>
                       {loadingSuggestion ? 'Calculando...' : energyCostTotal?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Valor Embalagem:</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Custo Embalagem:</span>
                     <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>
                       {loadingSuggestion ? 'Calculando...' : packagingCost?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Valor Desgaste Impressão:</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Desgaste Impressão:</span>
                     <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>
                       {loadingSuggestion ? 'Calculando...' : printerWearTotal?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Valor Taxas Shoppe:</span>
-                    <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>
-                      {loadingSuggestion ? 'Calculando...' : shopeeCostsTotal?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Valor Custos Particular:</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Custo Total Produção:</span>
                     <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>
                       {loadingSuggestion ? 'Calculando...' : productionCostWithoutShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Valor Com Custos Shoppe:</span>
-                    <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>
-                      {loadingSuggestion ? 'Calculando...' : productionCost?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Sugestão de Preço Particular:</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>Sugestão de Preço Particular:</span>
                     <span style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>
                       {loadingSuggestion ? 'Calculando...' : suggestedPriceParticular?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Sugestão de Preço Shoppe:</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>Sugestão de Preço Shoppe:</span>
                     <span style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>
                       {loadingSuggestion ? 'Calculando...' : suggestedPriceShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Estimativa de Lucro Líquido Particular:</span>
+                    <span style={{ fontSize: '0.85rem', color: (netProfit && netProfit >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>Estimativa de Lucro Líquido Particular:</span>
                     <span style={{ fontSize: '0.9rem', color: (netProfit && netProfit >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
                       {loadingSuggestion ? 'Calculando...' : netProfit?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Estimativa de Lucro Líquido Shoppe:</span>
+                    <span style={{ fontSize: '0.85rem', color: (netProfitShoppe && netProfitShoppe >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>Estimativa de Lucro Líquido Shoppe:</span>
                     <span style={{ fontSize: '0.9rem', color: (netProfitShoppe && netProfitShoppe >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
                       {loadingSuggestion ? 'Calculando...' : netProfitShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
@@ -840,48 +879,202 @@ export const Products: React.FC = () => {
                 </div>
               </div>
 
-              {/* Upload de Imagens / Mídia */}
+              {/* Upload de Imagens / Mídia e Ordem do Carrossel */}
               <div className="form-group" style={{ marginTop: '0.75rem' }}>
-                <label className="form-label">Fotos e Vídeos da Peça</label>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                  <label className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', cursor: 'pointer' }}>
-                    <Upload size={14} />
-                    {uploading ? 'Enviando...' : 'Fazer Upload'}
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Fotos e Vídeos da Peça ({imagesVideosPaths.length})</span>
+                  {imagesVideosPaths.length > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'none', fontWeight: 400 }}>
+                      A 1ª foto é a capa do carrossel
+                    </span>
+                  )}
+                </label>
+                
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label className="btn btn-secondary" style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem', cursor: uploading ? 'not-allowed' : 'pointer' }}>
+                    <Upload size={15} />
+                    {uploading ? (uploadProgress || 'Enviando...') : 'Escolher Várias Fotos / Vídeos'}
                     <input 
                       type="file" 
+                      multiple
                       accept="image/*,video/*" 
                       onChange={handleFileUpload} 
                       style={{ display: 'none' }}
                       disabled={uploading}
                     />
                   </label>
-                  {uploading && <Loader className="animate-spin" size={14} style={{ color: 'var(--primary)' }} />}
+                  {uploading && <Loader className="animate-spin" size={16} style={{ color: 'var(--primary)' }} />}
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Pressione Ctrl ou Shift para selecionar múltiplas fotos de uma vez.
+                  </span>
                 </div>
 
-                {/* Grid de Previsualização de Mídias Carregadas */}
+                {/* Grid e Reordenação do Carrossel */}
                 {imagesVideosPaths.length > 0 && (
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-                    {imagesVideosPaths.map((path, idx) => (
-                      <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                        {path.toLowerCase().endsWith('.mp4') ? (
-                          <video src={path} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <img src={path} alt="Upload preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        )}
-                        <button 
-                          type="button" 
-                          onClick={() => removeMedia(idx)}
-                          style={{
-                            position: 'absolute', top: 2, right: 2,
-                            background: 'rgba(255,59,48,0.8)', border: 'none', color: '#fff',
-                            borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                          }}
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))}
+                  <div style={{ marginTop: '1rem' }}>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+                      Arraste as fotos ou utilize as setas <strong>&lt;</strong> e <strong>&gt;</strong> para definir a ordem no carrossel:
+                    </p>
+                    
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      {imagesVideosPaths.map((path, idx) => {
+                        const isCover = idx === 0;
+                        const isVideo = path.toLowerCase().endsWith('.mp4');
+                        const isDragging = draggedMediaIndex === idx;
+
+                        return (
+                          <div
+                            key={idx}
+                            draggable
+                            onDragStart={(e) => handleMediaDragStart(e, idx)}
+                            onDragOver={handleMediaDragOver}
+                            onDrop={(e) => handleMediaDrop(e, idx)}
+                            style={{
+                              position: 'relative',
+                              width: '115px',
+                              borderRadius: 'var(--radius-sm)',
+                              overflow: 'hidden',
+                              border: isCover ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                              background: 'var(--bg-surface-1)',
+                              boxShadow: isCover ? '0 0 10px var(--primary-glow)' : 'none',
+                              opacity: isDragging ? 0.4 : 1,
+                              cursor: 'grab',
+                              transition: 'var(--transition-fast)'
+                            }}
+                          >
+                            {/* Badge de Ordem / Capa */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: 4,
+                                left: 4,
+                                zIndex: 2,
+                                background: isCover ? 'var(--primary)' : 'rgba(0, 0, 0, 0.75)',
+                                color: isCover ? '#000' : '#fff',
+                                padding: '0.15rem 0.4rem',
+                                borderRadius: '4px',
+                                fontSize: '0.7rem',
+                                fontWeight: 800,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.2rem'
+                              }}
+                            >
+                              {isCover && <Star size={10} fill="#000" />}
+                              {isCover ? 'Capa' : `${idx + 1}º`}
+                            </div>
+
+                            {/* Botão de Excluir Foto */}
+                            <button
+                              type="button"
+                              onClick={() => removeMedia(idx)}
+                              title="Remover foto"
+                              style={{
+                                position: 'absolute',
+                                top: 4,
+                                right: 4,
+                                zIndex: 2,
+                                background: 'rgba(255, 59, 48, 0.85)',
+                                border: 'none',
+                                color: '#fff',
+                                borderRadius: '50%',
+                                width: '20px',
+                                height: '20px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <X size={11} />
+                            </button>
+
+                            {/* Mídia */}
+                            <div style={{ height: '85px', width: '100%', background: '#0a0c10', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {isVideo ? (
+                                <video src={path} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <img src={path} alt={`Mídia ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              )}
+                            </div>
+
+                            {/* Controles de Ordem (Setas e Capa) */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '0.3rem 0.4rem',
+                                background: 'rgba(255, 255, 255, 0.03)',
+                                borderTop: '1px solid var(--border-color)'
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => moveMedia(idx, 'left')}
+                                disabled={idx === 0}
+                                title="Mover para esquerda"
+                                style={{
+                                  background: 'rgba(255, 255, 255, 0.08)',
+                                  border: 'none',
+                                  color: idx === 0 ? 'var(--text-muted)' : '#fff',
+                                  borderRadius: '3px',
+                                  width: '24px',
+                                  height: '24px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: idx === 0 ? 'not-allowed' : 'pointer'
+                                }}
+                              >
+                                <ChevronLeft size={14} />
+                              </button>
+
+                              {!isCover && (
+                                <button
+                                  type="button"
+                                  onClick={() => setAsCover(idx)}
+                                  title="Tornar esta a Capa (1º)"
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--primary)',
+                                    cursor: 'pointer',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 700,
+                                    padding: '0 0.2rem'
+                                  }}
+                                >
+                                  Capa
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => moveMedia(idx, 'right')}
+                                disabled={idx === imagesVideosPaths.length - 1}
+                                title="Mover para direita"
+                                style={{
+                                  background: 'rgba(255, 255, 255, 0.08)',
+                                  border: 'none',
+                                  color: idx === imagesVideosPaths.length - 1 ? 'var(--text-muted)' : '#fff',
+                                  borderRadius: '3px',
+                                  width: '24px',
+                                  height: '24px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  cursor: idx === imagesVideosPaths.length - 1 ? 'not-allowed' : 'pointer',
+                                  marginLeft: isCover ? 'auto' : undefined
+                                }}
+                              >
+                                <ChevronRight size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>

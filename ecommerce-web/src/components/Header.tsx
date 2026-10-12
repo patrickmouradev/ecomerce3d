@@ -54,7 +54,7 @@ export const Header: React.FC = () => {
   const isAdminOrFinancial = activeRole === 'ADMINISTRADOR' || activeRole === 'FINANCEIRO';
 
   return (
-    <header className="glass-panel" style={{
+    <header style={{
       position: 'sticky',
       top: 0,
       zIndex: 999,
@@ -62,8 +62,10 @@ export const Header: React.FC = () => {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0.75rem 2rem',
+      backgroundColor: '#090b0e',
       borderBottom: '1px solid var(--border-color)',
-      borderRadius: '0 0 var(--radius-md) var(--radius-md)'
+      borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+      boxShadow: '0 4px 24px rgba(0, 0, 0, 0.75)'
     }}>
       {/* Logo e Nome da Loja */}
       <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
