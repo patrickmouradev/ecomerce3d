@@ -9,6 +9,7 @@ import Filaments from './pages/admin/Filaments';
 import Params from './pages/admin/Params';
 import BasicProductionCosts from './pages/admin/BasicProductionCosts';
 import Products from './pages/admin/Products';
+import Accessories from './pages/admin/Accessories';
 import Dashboard from './pages/admin/Dashboard';
 import AdminGuard from './components/AdminGuard';
 
@@ -56,6 +57,14 @@ function App() {
                 element={
                   <AdminGuard>
                     <Products />
+                  </AdminGuard>
+                } 
+              />
+              <Route 
+                path="/admin/accessories" 
+                element={
+                  <AdminGuard>
+                    <Accessories />
                   </AdminGuard>
                 } 
               />

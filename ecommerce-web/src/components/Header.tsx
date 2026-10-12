@@ -1,26 +1,31 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, LogOut, Shield, ChevronDown, Check, Edit2, LogIn } from 'lucide-react';
+import { User, LogOut, Shield, ChevronDown, Check, Edit2, LogIn, Box, Layers, Sliders, DollarSign, Paperclip } from 'lucide-react';
 import logoImg from '../assets/logo-loja.jpg';
 
 export const Header: React.FC = () => {
   const { user, logout, activeRole, roles, switchProfile, updateProfileDetails } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || '');
   const [showProfileSwitcher, setShowProfileSwitcher] = useState(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const adminDropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Fecha o dropdown ao clicar fora dele
+  // Fecha os dropdowns ao clicar fora
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
         setIsEditing(false);
         setShowProfileSwitcher(false);
+      }
+      if (adminDropdownRef.current && !adminDropdownRef.current.contains(event.target as Node)) {
+        setAdminDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -94,20 +99,158 @@ export const Header: React.FC = () => {
         
         {isAdminOrFinancial && (
           <>
-            <Link to="/admin/products" style={{ fontSize: '0.95rem', fontWeight: 500 }} className="nav-link">
-              Produtos
-            </Link>
-            <Link to="/admin/filaments" style={{ fontSize: '0.95rem', fontWeight: 500 }} className="nav-link">
-              Filamentos
-            </Link>
-            <Link to="/admin/parameters" style={{ fontSize: '0.95rem', fontWeight: 500 }} className="nav-link">
-              Parâmetros
-            </Link>
-            <Link to="/admin/basic-costs" style={{ fontSize: '0.95rem', fontWeight: 500 }} className="nav-link">
-              Custos Produção
-            </Link>
+            {/* Menu Administração com Dropdown */}
+            <div ref={adminDropdownRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setAdminDropdownOpen(!adminDropdownOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: 'none',
+                  border: 'none',
+                  color: adminDropdownOpen ? 'var(--primary)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-primary)',
+                  fontWeight: 500,
+                  fontSize: '0.95rem',
+                  padding: 0,
+                  transition: 'var(--transition-fast)'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = adminDropdownOpen ? 'var(--primary)' : 'var(--text-secondary)'}
+              >
+                <span>Administração</span>
+                <ChevronDown size={14} style={{ transform: adminDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
+
+              {adminDropdownOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 0.75rem)',
+                  left: 0,
+                  width: '210px',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.5rem',
+                  backgroundColor: '#0d1117',
+                  border: '1px solid var(--border-glow)',
+                  boxShadow: '0 12px 36px rgba(0, 0, 0, 0.85)',
+                  zIndex: 1000,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem'
+                }}>
+                  <Link 
+                    to="/admin/products" 
+                    onClick={() => setAdminDropdownOpen(false)}
+                    className="dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.6rem 0.8rem',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      transition: 'var(--transition-fast)'
+                    }}
+                  >
+                    <Box size={15} style={{ color: 'var(--primary)' }} />
+                    Produtos
+                  </Link>
+
+                  <Link 
+                    to="/admin/filaments" 
+                    onClick={() => setAdminDropdownOpen(false)}
+                    className="dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.6rem 0.8rem',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      transition: 'var(--transition-fast)'
+                    }}
+                  >
+                    <Layers size={15} style={{ color: 'var(--primary)' }} />
+                    Filamentos
+                  </Link>
+
+                  <Link 
+                    to="/admin/accessories" 
+                    onClick={() => setAdminDropdownOpen(false)}
+                    className="dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.6rem 0.8rem',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      transition: 'var(--transition-fast)'
+                    }}
+                  >
+                    <Paperclip size={15} style={{ color: 'var(--primary)' }} />
+                    Acessórios
+                  </Link>
+
+                  <Link 
+                    to="/admin/parameters" 
+                    onClick={() => setAdminDropdownOpen(false)}
+                    className="dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.6rem 0.8rem',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      transition: 'var(--transition-fast)'
+                    }}
+                  >
+                    <Sliders size={15} style={{ color: 'var(--primary)' }} />
+                    Parâmetros
+                  </Link>
+
+                  <Link 
+                    to="/admin/basic-costs" 
+                    onClick={() => setAdminDropdownOpen(false)}
+                    className="dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.6rem 0.8rem',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                      textDecoration: 'none',
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      transition: 'var(--transition-fast)'
+                    }}
+                  >
+                    <DollarSign size={15} style={{ color: 'var(--primary)' }} />
+                    Custo Produção
+                  </Link>
+                </div>
+              )}
+            </div>
+
             <Link to="/admin/dashboard" style={{ fontSize: '0.95rem', fontWeight: 500 }} className="nav-link">
-              Painel
+              Dashboard
             </Link>
           </>
         )}
@@ -312,6 +455,10 @@ export const Header: React.FC = () => {
         .nav-link:hover {
           color: var(--primary);
           text-shadow: 0 0 10px var(--primary-glow);
+        }
+        .dropdown-item:hover {
+          background: rgba(0, 240, 255, 0.08) !important;
+          color: var(--primary) !important;
         }
       `}</style>
     </header>
