@@ -447,29 +447,22 @@ export const Products: React.FC = () => {
           <Loader className="animate-spin" size={24} style={{ color: 'var(--primary)' }} />
         </div>
       ) : products.length > 0 ? (
-        <div className="table-container">
+        <div className="table-container" style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}>
           <table className="premium-table">
             <thead>
               <tr>
                 <th onClick={() => handleSort('name')}>
                   Nome <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
-                <th>Material</th>
                 <th onClick={() => handleSort('weightG')}>
-                  Peso (g) <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
+                  Filamento e Peso <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
-                <th onClick={() => handleSort('printingHours')}>
-                  Horas <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
-                </th>
-                <th>Custo Produção</th>
-                <th>Preço Sugerido</th>
                 <th onClick={() => handleSort('salePriceParticular')}>
                   Venda Particular <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
                 <th onClick={() => handleSort('salePriceShoppe')}>
                   Venda Shoppe <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
-                <th>Lucro Líquido</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Ações</th>
               </tr>
@@ -478,25 +471,51 @@ export const Products: React.FC = () => {
               {products.map((prod) => (
                 <tr key={prod.id} style={{ opacity: prod.active ? 1 : 0.5 }}>
                   <td style={{ fontWeight: 600 }}>{prod.name}</td>
-                  <td style={{ fontSize: '0.85rem' }}>
-                    {prod.filaments?.map(f => f.filamentLabel).join(', ') || 'Sem filamentos'}
-                  </td>
-                  <td>{prod.weightG} g</td>
-                  <td>{prod.printingHours} h</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>
-                    {prod.productionCost?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
-                  </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>
-                    {prod.suggestedPrice?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
+                  <td>
+                    {prod.filaments && prod.filaments.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        {prod.filaments.map((f, idx) => (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>{f.filamentLabel}</span>
+                            <span style={{
+                              fontWeight: 600,
+                              color: 'var(--primary)',
+                              background: 'rgba(0, 240, 255, 0.08)',
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: '4px',
+                              whiteSpace: 'nowrap',
+                              fontSize: '0.8rem'
+                            }}>
+                              {f.weightG} g
+                            </span>
+                          </div>
+                        ))}
+                        {prod.filaments.length > 1 && (
+                          <div style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-muted)',
+                            borderTop: '1px dashed var(--border-color)',
+                            paddingTop: '0.25rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <span>Total:</span>
+                            <strong style={{ color: 'var(--text-secondary)' }}>{prod.weightG} g</strong>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                        {prod.weightG ? `${prod.weightG} g` : 'Sem filamentos'}
+                      </span>
+                    )}
                   </td>
                   <td style={{ color: 'var(--success)', fontWeight: 700 }}>
                     {prod.salePriceParticular?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
                   </td>
                   <td style={{ color: 'var(--success)', fontWeight: 700 }}>
                     {prod.salePriceShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
-                  </td>
-                  <td style={{ color: prod.netProfit >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
-                    {prod.netProfit?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
                   </td>
                   <td>
                     <span style={{
