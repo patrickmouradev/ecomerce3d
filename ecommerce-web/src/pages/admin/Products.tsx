@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload, Copy, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { getAccessories, createAccessory, type Accessory } from '../../services/accessoryService';
+import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload, Copy, ChevronLeft, ChevronRight, Star, Paperclip, Check } from 'lucide-react';
 
 interface ProductFilament {
   filamentId: string;
   filamentLabel: string;
   weightG: number;
   pricePerKg?: number;
+}
+
+interface ProductAccessory {
+  accessoryId: string;
+  description: string;
+  price: number;
+  quantity: number;
 }
 
 interface Product {
@@ -16,6 +24,8 @@ interface Product {
   weightG: number;
   printingHours: number;
   filaments: ProductFilament[];
+  accessories?: ProductAccessory[];
+  accessoryCostTotal?: number;
   suggestedPrice: number;
   suggestedPriceShoppe: number;
   suggestedPriceParticular: number;
@@ -65,11 +75,25 @@ export const Products: React.FC = () => {
   const [selectedFilamentWeight, setSelectedFilamentWeight] = useState('');
   const [filamentModalError, setFilamentModalError] = useState('');
 
+  // Acessórios
+  const [accessories, setAccessories] = useState<Accessory[]>([]);
+  const [isAccessoryModalOpen, setIsAccessoryModalOpen] = useState(false);
+  const [accessoryTab, setAccessoryTab] = useState<'select' | 'create'>('select');
+  const [accessorySearchQuery, setAccessorySearchQuery] = useState('');
+  const [selectedAccessoryId, setSelectedAccessoryId] = useState<string | null>(null);
+  const [selectedAccessoryQuantity, setSelectedAccessoryQuantity] = useState('1');
+  const [newAccessoryDesc, setNewAccessoryDesc] = useState('');
+  const [newAccessoryPrice, setNewAccessoryPrice] = useState('');
+  const [newAccessoryQuantity, setNewAccessoryQuantity] = useState('1');
+  const [accessoryModalError, setAccessoryModalError] = useState('');
+  const [savingNewAccessory, setSavingNewAccessory] = useState(false);
+
   // Form fields
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [printingHours, setPrintingHours] = useState('');
   const [productFilaments, setProductFilaments] = useState<{ filamentId: string; weightG: string }[]>([]);
+  const [productAccessories, setProductAccessories] = useState<{ accessoryId: string; description: string; price: number; quantity: number }[]>([]);
   const [profitMargin, setProfitMargin] = useState('');
   const [salePriceParticular, setSalePriceParticular] = useState('');
   const [salePriceShoppe, setSalePriceShoppe] = useState('');
@@ -85,6 +109,7 @@ export const Products: React.FC = () => {
   const [energyCostTotal, setEnergyCostTotal] = useState<number | null>(null);
   const [printerWearTotal, setPrinterWearTotal] = useState<number | null>(null);
   const [packagingCost, setPackagingCost] = useState<number | null>(null);
+  const [accessoryCostTotal, setAccessoryCostTotal] = useState<number | null>(null);
   const [, setShopeeCostsTotal] = useState<number | null>(null);
   const [productionCostWithoutShoppe, setProductionCostWithoutShoppe] = useState<number | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
@@ -97,9 +122,10 @@ export const Products: React.FC = () => {
   useEffect(() => {
     fetchProducts();
     fetchFilaments();
+    fetchAccessories();
   }, [searchQuery, sortBy, direction]);
 
-  // Executa o preview do preço sugerido em tempo real ao alterar peso, horas, filamento ou margem
+  // Executa o preview do preço sugerido em tempo real ao alterar peso, horas, filamento, margem ou acessórios
   useEffect(() => {
     const hasValidFilaments = productFilaments.length > 0 && productFilaments.every(f => f.filamentId && parseFloat(f.weightG) > 0);
     if (hasValidFilaments && printingHours) {
@@ -113,10 +139,11 @@ export const Products: React.FC = () => {
       setEnergyCostTotal(null);
       setPrinterWearTotal(null);
       setPackagingCost(null);
+      setAccessoryCostTotal(null);
       setShopeeCostsTotal(null);
       setProductionCostWithoutShoppe(null);
     }
-  }, [JSON.stringify(productFilaments), printingHours, profitMargin]);
+  }, [JSON.stringify(productFilaments), JSON.stringify(productAccessories), printingHours, profitMargin]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -145,6 +172,15 @@ export const Products: React.FC = () => {
     }
   };
 
+  const fetchAccessories = async () => {
+    try {
+      const data = await getAccessories();
+      setAccessories(data);
+    } catch (e) {
+      console.error("Erro ao buscar acessórios", e);
+    }
+  };
+
   const calculateSuggestedPricePreview = async () => {
     setLoadingSuggestion(true);
     try {
@@ -155,6 +191,10 @@ export const Products: React.FC = () => {
         filaments: validFilaments.map(f => ({
           filamentId: f.filamentId,
           weightG: parseFloat(f.weightG)
+        })),
+        accessories: productAccessories.map(a => ({
+          accessoryId: a.accessoryId,
+          quantity: a.quantity
         }))
       });
       setSuggestedPriceShoppe(response.data.suggestedPriceShoppe);
@@ -165,6 +205,7 @@ export const Products: React.FC = () => {
       setEnergyCostTotal(response.data.energyCostTotal);
       setPrinterWearTotal(response.data.printerWearTotal);
       setPackagingCost(response.data.packagingCost);
+      setAccessoryCostTotal(response.data.accessoryCostTotal);
       setShopeeCostsTotal(response.data.shopeeCostsTotal);
       setProductionCostWithoutShoppe(response.data.productionCostWithoutShoppe);
     } catch (e) {
@@ -261,6 +302,7 @@ export const Products: React.FC = () => {
     setName('');
     setDescription('');
     setProductFilaments([]);
+    setProductAccessories([]);
     setPrintingHours('');
     setProfitMargin('');
     setSalePriceParticular('');
@@ -275,6 +317,7 @@ export const Products: React.FC = () => {
     setEnergyCostTotal(null);
     setPrinterWearTotal(null);
     setPackagingCost(null);
+    setAccessoryCostTotal(null);
     setShopeeCostsTotal(null);
     setProductionCostWithoutShoppe(null);
     setFormError('');
@@ -292,6 +335,14 @@ export const Products: React.FC = () => {
         weightG: pf.weightG.toString()
       })) || []
     );
+    setProductAccessories(
+      prod.accessories?.map(pa => ({
+        accessoryId: pa.accessoryId,
+        description: pa.description,
+        price: pa.price,
+        quantity: pa.quantity
+      })) || []
+    );
     setPrintingHours(prod.printingHours.toString());
     setProfitMargin(prod.profitMargin.toString());
     setSalePriceParticular(prod.salePriceParticular.toString());
@@ -306,6 +357,7 @@ export const Products: React.FC = () => {
     setEnergyCostTotal(prod.energyCostTotal);
     setPrinterWearTotal(prod.printerWearTotal);
     setPackagingCost(prod.packagingCost);
+    setAccessoryCostTotal(prod.accessoryCostTotal || null);
     setShopeeCostsTotal(prod.shopeeCostsTotal);
     setProductionCostWithoutShoppe(prod.productionCostWithoutShoppe);
     setFormError('');
@@ -323,6 +375,14 @@ export const Products: React.FC = () => {
         weightG: pf.weightG.toString()
       })) || []
     );
+    setProductAccessories(
+      prod.accessories?.map(pa => ({
+        accessoryId: pa.accessoryId,
+        description: pa.description,
+        price: pa.price,
+        quantity: pa.quantity
+      })) || []
+    );
     setPrintingHours(prod.printingHours.toString());
     setProfitMargin(prod.profitMargin.toString());
     setSalePriceParticular(prod.salePriceParticular.toString());
@@ -337,6 +397,7 @@ export const Products: React.FC = () => {
     setEnergyCostTotal(prod.energyCostTotal);
     setPrinterWearTotal(prod.printerWearTotal);
     setPackagingCost(prod.packagingCost);
+    setAccessoryCostTotal(prod.accessoryCostTotal || null);
     setShopeeCostsTotal(prod.shopeeCostsTotal);
     setProductionCostWithoutShoppe(prod.productionCostWithoutShoppe);
     setFormError('');
@@ -391,6 +452,120 @@ export const Products: React.FC = () => {
     return matchesSearch && matchesMaterial;
   });
 
+  // Funções do Modal de Acessórios
+  const openAccessoryModal = () => {
+    setAccessoryTab('select');
+    setAccessorySearchQuery('');
+    setSelectedAccessoryId(null);
+    setSelectedAccessoryQuantity('1');
+    setNewAccessoryDesc('');
+    setNewAccessoryPrice('');
+    setNewAccessoryQuantity('1');
+    setAccessoryModalError('');
+    setIsAccessoryModalOpen(true);
+  };
+
+  const handleAddAccessoryFromModal = () => {
+    if (!selectedAccessoryId) {
+      setAccessoryModalError('Por favor, selecione um acessório na tabela.');
+      return;
+    }
+    const qty = parseInt(selectedAccessoryQuantity, 10);
+    if (isNaN(qty) || qty < 1) {
+      setAccessoryModalError('Informe uma quantidade inteira válida maior que zero.');
+      return;
+    }
+
+    const acc = accessories.find(a => a.id === selectedAccessoryId);
+    if (!acc) {
+      setAccessoryModalError('Acessório não encontrado.');
+      return;
+    }
+
+    const existingIdx = productAccessories.findIndex(pa => pa.accessoryId === selectedAccessoryId);
+    if (existingIdx >= 0) {
+      const updated = [...productAccessories];
+      updated[existingIdx] = {
+        ...updated[existingIdx],
+        quantity: qty
+      };
+      setProductAccessories(updated);
+    } else {
+      setProductAccessories([
+        ...productAccessories,
+        {
+          accessoryId: acc.id,
+          description: acc.description,
+          price: acc.price,
+          quantity: qty
+        }
+      ]);
+    }
+
+    setIsAccessoryModalOpen(false);
+  };
+
+  const handleCreateAndAddAccessory = async () => {
+    if (!newAccessoryDesc.trim()) {
+      setAccessoryModalError('Informe a descrição do novo acessório.');
+      return;
+    }
+    const price = parseFloat(newAccessoryPrice.replace(',', '.'));
+    if (isNaN(price) || price <= 0) {
+      setAccessoryModalError('Informe um valor unitário em Reais válido maior que zero.');
+      return;
+    }
+    const qty = parseInt(newAccessoryQuantity, 10);
+    if (isNaN(qty) || qty < 1) {
+      setAccessoryModalError('Informe uma quantidade inteira válida maior que zero.');
+      return;
+    }
+
+    setSavingNewAccessory(true);
+    setAccessoryModalError('');
+    try {
+      const created = await createAccessory({
+        description: newAccessoryDesc.trim(),
+        price: price
+      });
+
+      // Atualiza catálogo global localmente
+      setAccessories(prev => [...prev, created]);
+
+      // Adiciona ao produto
+      setProductAccessories(prev => [
+        ...prev,
+        {
+          accessoryId: created.id,
+          description: created.description,
+          price: created.price,
+          quantity: qty
+        }
+      ]);
+
+      setIsAccessoryModalOpen(false);
+    } catch (err: any) {
+      console.error("Erro ao cadastrar acessório", err);
+      setAccessoryModalError(err.response?.data?.message || 'Falha ao cadastrar o acessório no catálogo global.');
+    } finally {
+      setSavingNewAccessory(false);
+    }
+  };
+
+  const handleRemoveAccessory = (accessoryId: string) => {
+    setProductAccessories(prev => prev.filter(pa => pa.accessoryId !== accessoryId));
+  };
+
+  const handleUpdateAccessoryQuantity = (accessoryId: string, quantity: number) => {
+    const validQty = Math.max(1, quantity);
+    setProductAccessories(prev => prev.map(pa => pa.accessoryId === accessoryId ? { ...pa, quantity: validQty } : pa));
+  };
+
+  const filteredAccessoriesInModal = accessories.filter(a => {
+    const query = accessorySearchQuery.toLowerCase();
+    return a.description.toLowerCase().includes(query);
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -426,6 +601,10 @@ export const Products: React.FC = () => {
       filaments: productFilaments.map(f => ({
         filamentId: f.filamentId,
         weightG: parseFloat(f.weightG)
+      })),
+      accessories: productAccessories.map(a => ({
+        accessoryId: a.accessoryId,
+        quantity: a.quantity
       })),
       profitMargin: margin,
       salePriceParticular: priceParticular,
@@ -746,6 +925,110 @@ export const Products: React.FC = () => {
                 </div>
               </div>
 
+              {/* Seção de Acessórios do Produto */}
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>
+                    Acessórios do Produto
+                  </label>
+                  {productAccessories.length > 0 && (
+                    <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>
+                      Total Acessórios: R$ {productAccessories.reduce((acc, a) => acc + (a.price * a.quantity), 0).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.75rem'
+                }}>
+                  {productAccessories.length === 0 ? (
+                    <div style={{
+                      padding: '1rem',
+                      textAlign: 'center',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px dashed var(--border-color)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.85rem'
+                    }}>
+                      Nenhum acessório vinculado ainda (ex: argolas, parafusos, ímãs).
+                    </div>
+                  ) : (
+                    productAccessories.map((pa) => {
+                      const itemSubtotal = pa.price * pa.quantity;
+                      return (
+                        <div key={pa.accessoryId} style={{
+                          display: 'flex',
+                          gap: '0.75rem',
+                          alignItems: 'center',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.6rem 0.8rem'
+                        }}>
+                          <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.875rem', color: '#fff' }}>
+                              {pa.description}
+                            </span>
+                            <span style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>
+                              Unitário: R$ {pa.price.toFixed(2)}
+                            </span>
+                          </div>
+
+                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <input 
+                              type="number" 
+                              min="1"
+                              step="1"
+                              placeholder="Qtd"
+                              value={pa.quantity} 
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                handleUpdateAccessoryQuantity(pa.accessoryId, isNaN(val) ? 1 : val);
+                              }} 
+                              className="form-input"
+                              style={{ fontSize: '0.85rem', padding: '0.4rem 0.6rem' }}
+                              required 
+                            />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>un</span>
+                          </div>
+
+                          <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, minWidth: '70px', textAlign: 'right' }}>
+                            R$ {itemSubtotal.toFixed(2)}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAccessory(pa.accessoryId)}
+                            className="btn btn-danger"
+                            style={{ padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Remover acessório"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={openAccessoryModal}
+                    className="btn btn-secondary"
+                    style={{ alignSelf: 'flex-start', marginTop: '0.5rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <Plus size={14} />
+                    Adicionar Acessório
+                  </button>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div className="form-group" style={{ flex: 1 }}>
                   <label className="form-label">Horas de Impressão (h)</label>
@@ -807,6 +1090,12 @@ export const Products: React.FC = () => {
                     <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Desgaste Impressão:</span>
                     <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>
                       {loadingSuggestion ? 'Calculando...' : printerWearTotal?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Custo Acessórios:</span>
+                    <span style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 600 }}>
+                      {loadingSuggestion ? 'Calculando...' : (accessoryCostTotal !== null ? accessoryCostTotal : productAccessories.reduce((acc, a) => acc + (a.price * a.quantity), 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
@@ -1311,6 +1600,309 @@ export const Products: React.FC = () => {
               >
                 Salvar e Adicionar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Seleção e Cadastro de Acessórios */}
+      {isAccessoryModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '1rem'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '560px',
+            background: '#0d1117',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--border-glow)',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '90vh'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Paperclip size={18} style={{ color: 'var(--primary)' }} />
+                Acessórios do Produto
+              </h3>
+              <button 
+                onClick={() => setIsAccessoryModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Abas: Selecionar do Catálogo vs Novo Acessório */}
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
+              <button
+                type="button"
+                onClick={() => { setAccessoryTab('select'); setAccessoryModalError(''); }}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: accessoryTab === 'select' ? '2px solid var(--primary)' : '2px solid transparent',
+                  color: accessoryTab === 'select' ? 'var(--primary)' : 'var(--text-secondary)',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Selecionar do Catálogo
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAccessoryTab('create'); setAccessoryModalError(''); }}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: accessoryTab === 'create' ? '2px solid var(--primary)' : '2px solid transparent',
+                  color: accessoryTab === 'create' ? 'var(--primary)' : 'var(--text-secondary)',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                + Cadastrar Novo Acessório
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {accessoryTab === 'select' ? (
+                <>
+                  {/* Busca */}
+                  <div style={{ position: 'relative' }}>
+                    <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input 
+                      type="text"
+                      placeholder="Buscar acessório no catálogo..."
+                      value={accessorySearchQuery}
+                      onChange={(e) => setAccessorySearchQuery(e.target.value)}
+                      className="form-input"
+                      style={{ paddingLeft: '2.25rem', fontSize: '0.875rem' }}
+                    />
+                  </div>
+
+                  {/* Tabela de Acessórios Existentes */}
+                  <div className="table-container" style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>
+                    <table className="premium-table" style={{ fontSize: '0.85rem' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ padding: '0.6rem 0.75rem' }}>Descrição</th>
+                          <th style={{ padding: '0.6rem 0.75rem' }}>Valor Unitário</th>
+                          <th style={{ padding: '0.6rem 0.75rem', width: '50px', textAlign: 'center' }}>Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredAccessoriesInModal.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                              Nenhum acessório encontrado. Alterne para a aba "Cadastrar Novo" para criar.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredAccessoriesInModal.map((a) => {
+                            const isSelected = selectedAccessoryId === a.id;
+                            return (
+                              <tr
+                                key={a.id}
+                                onClick={() => {
+                                  setSelectedAccessoryId(a.id);
+                                  setAccessoryModalError('');
+                                }}
+                                style={{
+                                  cursor: 'pointer',
+                                  background: isSelected ? 'rgba(0, 240, 255, 0.1)' : undefined,
+                                  borderLeft: isSelected ? '3px solid var(--primary)' : '3px solid transparent'
+                                }}
+                              >
+                                <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{a.description}</td>
+                                <td style={{ padding: '0.6rem 0.75rem', color: 'var(--primary)', fontWeight: 600 }}>
+                                  R$ {a.price.toFixed(2)}
+                                </td>
+                                <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>
+                                  <div style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    border: isSelected ? '5px solid var(--primary)' : '2px solid var(--border-color)',
+                                    margin: '0 auto',
+                                    transition: 'all 0.2s'
+                                  }} />
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Painel do Acessório Selecionado */}
+                  {selectedAccessoryId && (
+                    <div style={{
+                      background: 'rgba(0, 240, 255, 0.04)',
+                      border: '1px solid var(--primary-glow-strong)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '1rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem'
+                    }}>
+                      {(() => {
+                        const sel = accessories.find(a => a.id === selectedAccessoryId);
+                        if (!sel) return null;
+                        return (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff' }}>
+                                {sel.description}
+                              </span>
+                              <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>
+                                R$ {sel.price.toFixed(2)} / un
+                              </span>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                              <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                                Quantidade Utilizada neste Produto (unidades inteiras):
+                              </label>
+                              <input 
+                                type="number"
+                                min="1"
+                                step="1"
+                                placeholder="Ex: 1"
+                                value={selectedAccessoryQuantity}
+                                onChange={(e) => {
+                                  setSelectedAccessoryQuantity(e.target.value);
+                                  setAccessoryModalError('');
+                                }}
+                                className="form-input"
+                                style={{ fontSize: '0.9rem' }}
+                                autoFocus
+                              />
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Aba: Cadastrar Novo Acessório */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    O acessório será cadastrado no catálogo geral do sistema e vinculado automaticamente a este produto.
+                  </p>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Descrição do Acessório</label>
+                    <input 
+                      type="text"
+                      placeholder="Ex: Argola Chaveiro 25mm, Ímã de Neodímio 10x2mm..."
+                      value={newAccessoryDesc}
+                      onChange={(e) => setNewAccessoryDesc(e.target.value)}
+                      className="form-input"
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                      <label className="form-label">Valor Unitário (R$)</label>
+                      <input 
+                        type="text"
+                        placeholder="Ex: 0.50"
+                        value={newAccessoryPrice}
+                        onChange={(e) => setNewAccessoryPrice(e.target.value)}
+                        className="form-input"
+                        required
+                      />
+                    </div>
+                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                      <label className="form-label">Quantidade no Produto</label>
+                      <input 
+                        type="number"
+                        min="1"
+                        step="1"
+                        placeholder="Ex: 1"
+                        value={newAccessoryQuantity}
+                        onChange={(e) => setNewAccessoryQuantity(e.target.value)}
+                        className="form-input"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {accessoryModalError && (
+                <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>{accessoryModalError}</p>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '1rem 1.5rem',
+              borderTop: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              background: 'rgba(0,0,0,0.2)'
+            }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={() => setIsAccessoryModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              {accessoryTab === 'select' ? (
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={handleAddAccessoryFromModal}
+                >
+                  Adicionar ao Produto
+                </button>
+              ) : (
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={handleCreateAndAddAccessory}
+                  disabled={savingNewAccessory}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  {savingNewAccessory ? <Loader size={14} className="animate-spin" /> : <Check size={14} />}
+                  Cadastrar e Vincular
+                </button>
+              )}
             </div>
           </div>
         </div>

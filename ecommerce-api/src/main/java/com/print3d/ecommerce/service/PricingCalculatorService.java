@@ -3,6 +3,7 @@ package com.print3d.ecommerce.service;
 import com.print3d.ecommerce.dto.PricingResult;
 import com.print3d.ecommerce.model.BasicProductionCost;
 import com.print3d.ecommerce.model.Product;
+import com.print3d.ecommerce.model.ProductAccessory;
 import com.print3d.ecommerce.model.ProductFilament;
 import com.print3d.ecommerce.repository.BasicProductionCostRepository;
 import com.print3d.ecommerce.util.CostConstants;
@@ -55,6 +56,18 @@ public class PricingCalculatorService {
             }
         }
 
+        BigDecimal accessoryCostTotal = BigDecimal.ZERO;
+        if (product.getAccessories() != null) {
+            for (ProductAccessory pa : product.getAccessories()) {
+                if (pa.getAccessory() != null && pa.getAccessory().getPrice() != null && pa.getQuantity() != null) {
+                    BigDecimal qty = BigDecimal.valueOf(pa.getQuantity());
+                    BigDecimal itemCost = pa.getAccessory().getPrice().multiply(qty);
+                    accessoryCostTotal = accessoryCostTotal.add(itemCost);
+                }
+            }
+        }
+        accessoryCostTotal = accessoryCostTotal.setScale(2, RoundingMode.HALF_UP);
+
         BigDecimal printingHours = product.getPrintingHours() != null ? product.getPrintingHours() : BigDecimal.ZERO;
         BigDecimal profitMargin = product.getProfitMargin() != null ? product.getProfitMargin() : BigDecimal.ZERO;
 
@@ -66,10 +79,11 @@ public class PricingCalculatorService {
         // shopee_costs = shopeeFixedFee + shopeeCommission
         BigDecimal shopeeCostsTotal = shopeeFixedFee.add(shopeeCommission).setScale(2, RoundingMode.HALF_UP);
 
-        // production_cost_without_shopee = filament_cost + print_cost + packagingCost
+        // production_cost_without_shopee = filament_cost + print_cost + packagingCost + accessoryCostTotal
         BigDecimal productionCostWithoutShoppe = filamentCost
                 .add(printCost)
                 .add(packagingCost)
+                .add(accessoryCostTotal)
                 .setScale(2, RoundingMode.HALF_UP);
 
         // production_cost = production_cost_without_shopee + shopeeCostsTotal
@@ -111,6 +125,7 @@ public class PricingCalculatorService {
                 .energyCostTotal(energyCostTotal)
                 .printerWearTotal(printerWearTotal)
                 .packagingCost(packagingCost.setScale(2, RoundingMode.HALF_UP))
+                .accessoryCostTotal(accessoryCostTotal)
                 .shopeeCostsTotal(shopeeCostsTotal)
                 .productionCostWithoutShoppe(productionCostWithoutShoppe)
                 .build();

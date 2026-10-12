@@ -22,6 +22,7 @@ public class PricingResult {
     private BigDecimal energyCostTotal;
     private BigDecimal printerWearTotal;
     private BigDecimal packagingCost;
+    private BigDecimal accessoryCostTotal;
     private BigDecimal shopeeCostsTotal;
     private BigDecimal productionCostWithoutShoppe;
 }

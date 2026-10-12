@@ -15,4 +15,5 @@ public class ProductPricingPreviewRequestDto {
     private BigDecimal printingHours;
     private BigDecimal profitMargin;
     private List<ProductFilamentDto> filaments;
+    private List<ProductAccessoryDto> accessories;
 }

@@ -34,6 +34,8 @@ public class ProductDto {
     @NotNull(message = "Lista de filamentos é obrigatória")
     private List<ProductFilamentDto> filaments;
 
+    private List<ProductAccessoryDto> accessories;
+
     private BigDecimal suggestedPrice; // Calculado pelo sistema dinamicamente
     private BigDecimal suggestedPriceShoppe;
     private BigDecimal suggestedPriceParticular;
@@ -46,6 +48,7 @@ public class ProductDto {
     private BigDecimal energyCostTotal;
     private BigDecimal printerWearTotal;
     private BigDecimal packagingCost;
+    private BigDecimal accessoryCostTotal;
     private BigDecimal shopeeCostsTotal;
     private BigDecimal productionCostWithoutShoppe;
 

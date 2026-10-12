@@ -36,6 +36,10 @@ public class Product {
     @Builder.Default
     private List<ProductFilament> filaments = new java.util.ArrayList<>();
 
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ProductAccessory> accessories = new java.util.ArrayList<>();
+
     @Column(name = "profit_margin", nullable = false, precision = 10, scale = 2)
     private BigDecimal profitMargin;
 

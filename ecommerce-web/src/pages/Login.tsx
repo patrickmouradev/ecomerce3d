@@ -58,12 +58,13 @@ export const Login: React.FC = () => {
         padding: '2.5rem',
         borderRadius: 'var(--radius-lg)',
         border: '1px solid var(--primary-glow-strong)',
+        backgroundColor: '#0d1117',
         display: 'flex',
         flexDirection: 'column',
         gap: '1.5rem',
         width: '100%',
         maxWidth: '420px',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.7)',
         position: 'relative'
       }}>
         {/* Voltar para Home link */}

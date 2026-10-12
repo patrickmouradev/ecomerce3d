@@ -156,15 +156,16 @@ export const Header: React.FC = () => {
 
             {/* Menu Popover (Dropdown) */}
             {dropdownOpen && (
-              <div className="glass-panel" style={{
+              <div style={{
                 position: 'absolute',
                 top: 'calc(100% + 0.5rem)',
                 right: 0,
                 width: '280px',
                 borderRadius: 'var(--radius-md)',
                 padding: '1.25rem',
+                backgroundColor: '#0d1117',
                 border: '1px solid var(--border-glow)',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
+                boxShadow: '0 12px 36px rgba(0, 0, 0, 0.85)',
                 zIndex: 1000
               }}>
                 {/* Cabeçalho do Dropdown: Visualizar e Editar Dados */}

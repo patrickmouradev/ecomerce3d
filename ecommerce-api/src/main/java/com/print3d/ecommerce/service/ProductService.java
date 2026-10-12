@@ -6,6 +6,10 @@ import com.print3d.ecommerce.dto.ProductFilamentDto;
 import com.print3d.ecommerce.model.Filament;
 import com.print3d.ecommerce.model.Product;
 import com.print3d.ecommerce.model.ProductFilament;
+import com.print3d.ecommerce.dto.ProductAccessoryDto;
+import com.print3d.ecommerce.model.Accessory;
+import com.print3d.ecommerce.model.ProductAccessory;
+import com.print3d.ecommerce.repository.AccessoryRepository;
 import com.print3d.ecommerce.repository.FilamentRepository;
 import com.print3d.ecommerce.repository.ProductRepository;
 import com.print3d.ecommerce.repository.SystemParameterRepository;
@@ -31,6 +35,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final FilamentRepository filamentRepository;
+    private final AccessoryRepository accessoryRepository;
     private final PricingCalculatorService pricingCalculatorService;
 
     @Value("${app.upload.dir}")
@@ -38,9 +43,11 @@ public class ProductService {
 
     public ProductService(ProductRepository productRepository,
                           FilamentRepository filamentRepository,
+                          AccessoryRepository accessoryRepository,
                           PricingCalculatorService pricingCalculatorService) {
         this.productRepository = productRepository;
         this.filamentRepository = filamentRepository;
+        this.accessoryRepository = accessoryRepository;
         this.pricingCalculatorService = pricingCalculatorService;
     }
 
@@ -98,6 +105,20 @@ public class ProductService {
             product.setFilaments(pfList);
         }
 
+        if (dto.getAccessories() != null) {
+            List<ProductAccessory> paList = new ArrayList<>();
+            for (com.print3d.ecommerce.dto.ProductAccessoryDto paDto : dto.getAccessories()) {
+                Accessory accessory = accessoryRepository.findById(paDto.getAccessoryId())
+                        .orElseThrow(() -> new RuntimeException("Acessório não encontrado"));
+                paList.add(ProductAccessory.builder()
+                        .product(product)
+                        .accessory(accessory)
+                        .quantity(paDto.getQuantity())
+                        .build());
+            }
+            product.setAccessories(paList);
+        }
+
         Product saved = productRepository.save(product);
         return convertToDto(saved);
     }
@@ -129,6 +150,19 @@ public class ProductService {
                         .product(product)
                         .filament(filament)
                         .weightG(pfDto.getWeightG())
+                        .build());
+            }
+        }
+
+        product.getAccessories().clear();
+        if (dto.getAccessories() != null) {
+            for (com.print3d.ecommerce.dto.ProductAccessoryDto paDto : dto.getAccessories()) {
+                Accessory accessory = accessoryRepository.findById(paDto.getAccessoryId())
+                        .orElseThrow(() -> new RuntimeException("Acessório não encontrado"));
+                product.getAccessories().add(ProductAccessory.builder()
+                        .product(product)
+                        .accessory(accessory)
+                        .quantity(paDto.getQuantity())
                         .build());
             }
         }
@@ -168,6 +202,20 @@ public class ProductService {
             }
         }
         product.setFilaments(pfList);
+
+        if (requestDto.getAccessories() != null) {
+            List<ProductAccessory> paList = new ArrayList<>();
+            for (com.print3d.ecommerce.dto.ProductAccessoryDto paDto : requestDto.getAccessories()) {
+                Accessory accessory = accessoryRepository.findById(paDto.getAccessoryId())
+                        .orElseThrow(() -> new RuntimeException("Acessório não encontrado"));
+                paList.add(ProductAccessory.builder()
+                        .product(product)
+                        .accessory(accessory)
+                        .quantity(paDto.getQuantity())
+                        .build());
+            }
+            product.setAccessories(paList);
+        }
 
         return pricingCalculatorService.calculatePricing(product);
     }
@@ -233,6 +281,18 @@ public class ProductService {
             }
         }
 
+        List<ProductAccessoryDto> accessoriesDto = new ArrayList<>();
+        if (product.getAccessories() != null) {
+            for (ProductAccessory pa : product.getAccessories()) {
+                accessoriesDto.add(ProductAccessoryDto.builder()
+                        .accessoryId(pa.getAccessory().getId())
+                        .description(pa.getAccessory().getDescription())
+                        .price(pa.getAccessory().getPrice())
+                        .quantity(pa.getQuantity())
+                        .build());
+            }
+        }
+
         com.print3d.ecommerce.dto.PricingResult pricing = pricingCalculatorService.calculatePricing(product);
 
         return ProductDto.builder()
@@ -242,6 +302,7 @@ public class ProductService {
                 .weightG(totalWeight)
                 .printingHours(product.getPrintingHours())
                 .filaments(filamentsDto)
+                .accessories(accessoriesDto)
                 .productionCost(pricing.getProductionCost())
                 .suggestedPrice(pricing.getSuggestedPrice())
                 .suggestedPriceShoppe(pricing.getSuggestedPriceShoppe())
@@ -251,6 +312,7 @@ public class ProductService {
                 .energyCostTotal(pricing.getEnergyCostTotal())
                 .printerWearTotal(pricing.getPrinterWearTotal())
                 .packagingCost(pricing.getPackagingCost())
+                .accessoryCostTotal(pricing.getAccessoryCostTotal())
                 .shopeeCostsTotal(pricing.getShopeeCostsTotal())
                 .productionCostWithoutShoppe(pricing.getProductionCostWithoutShoppe())
                 .profitMargin(product.getProfitMargin())
