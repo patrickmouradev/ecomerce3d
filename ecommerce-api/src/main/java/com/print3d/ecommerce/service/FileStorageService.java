@@ -1,4 +1,4 @@
-﻿package com.print3d.ecommerce.service;
+package com.print3d.ecommerce.service;
 
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;

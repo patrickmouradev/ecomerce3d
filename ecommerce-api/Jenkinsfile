@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Jenkinsfile — Pipeline do Backend (Spring Boot)
 // Repositório: d:\GIT\Projeto _Loja_3D\ecommerce-api
 // Trigger: Manual / Push
@@ -26,16 +26,16 @@ pipeline {
     }
 
     stages {
-        stage('🔍 Checkout') {
+        stage('Checkout') {
             steps {
-                echo '=== Clonando repositório ==='
+                echo '=== Clonando repositorio ==='
                 checkout scm
             }
         }
 
-        stage('🏷️ Extrair Versão do POM') {
+        stage('Extrair Versao do POM') {
             steps {
-                echo '=== Detectando versão da aplicação a partir do pom.xml ==='
+                echo '=== Detectando versao da aplicacao a partir do pom.xml ==='
                 dir('ecommerce-api') {
                     script {
                         def pomVer = sh(
@@ -46,13 +46,13 @@ pipeline {
                             pomVer = '1.0.0'
                         }
                         env.APP_VERSION = pomVer
-                        echo "Versão definida para o release do Backend: ${env.APP_VERSION}"
+                        echo "Versao definida para o release do Backend: ${env.APP_VERSION}"
                     }
                 }
             }
         }
 
-        stage('📦 Build Maven') {
+        stage('Build Maven') {
             steps {
                 echo '=== Compilando e empacotando o Backend ==='
                 dir('ecommerce-api') {
@@ -66,9 +66,9 @@ pipeline {
             }
         }
 
-        stage('🐳 Docker Build') {
+        stage('Docker Build') {
             steps {
-                echo "=== Construindo imagem Docker do Backend (Versão: ${env.APP_VERSION}, Build: #${BUILD_NUMBER}) ==="
+                echo "=== Construindo imagem Docker do Backend (Versao: ${env.APP_VERSION}, Build: #${BUILD_NUMBER}) ==="
                 dir('ecommerce-api') {
                     sh '''
                         docker build \
@@ -82,15 +82,15 @@ pipeline {
             }
         }
 
-        stage('🚀 Deploy') {
+        stage('Deploy') {
             steps {
-                echo "=== Parando container antigo e subindo novo com versão ${env.APP_VERSION} ==="
+                echo "=== Parando container antigo e subindo novo com versao ${env.APP_VERSION} ==="
                 sh '''
                     # Para e remove o container anterior (se existir)
                     docker stop ${CONTAINER_NAME} || true
                     docker rm   ${CONTAINER_NAME} || true
 
-                    # Sobe o novo container conectado à rede do Jenkins (jenkins_jenkins_net)
+                    # Sobe o novo container conectado a rede do Jenkins (jenkins_jenkins_net)
                     docker run \
                         --name ${CONTAINER_NAME} \
                         --network jenkins_jenkins_net \
@@ -114,13 +114,13 @@ pipeline {
             }
         }
 
-        stage('✅ Health Check') {
+        stage('Health Check') {
             steps {
                 echo '=== Verificando se o Backend respondeu ao health check ==='
                 sh '''
                     sleep 20
                     curl -f http://${CONTAINER_NAME}:${APP_PORT}/v3/api-docs || \
-                        (echo "ERRO: Backend não respondeu ao health check!" && exit 1)
+                        (echo "ERRO: Backend nao respondeu ao health check!" && exit 1)
                 '''
             }
         }
@@ -128,10 +128,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline do Backend concluída com sucesso! Versão: ${env.APP_VERSION} (Build #${BUILD_NUMBER})"
+            echo "Pipeline do Backend concluida com sucesso! Versao: ${env.APP_VERSION} (Build #${BUILD_NUMBER})"
         }
         failure {
-            echo "❌ Pipeline do Backend FALHOU no build #${BUILD_NUMBER}."
+            echo "Pipeline do Backend FALHOU no build #${BUILD_NUMBER}."
         }
         always {
             sh 'docker image prune -f || true'

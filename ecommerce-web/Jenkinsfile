@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Jenkinsfile — Pipeline do Frontend (React + Vite + Nginx)
 // Repositório: d:\GIT\Projeto _Loja_3D\ecommerce-web
 // Trigger: Manual / Push
@@ -14,16 +14,16 @@ pipeline {
     }
 
     stages {
-        stage('🔍 Checkout') {
+        stage('Checkout') {
             steps {
-                echo '=== Clonando repositório ==='
+                echo '=== Clonando repositorio ==='
                 checkout scm
             }
         }
 
-        stage('🏷️ Extrair Versão do Frontend') {
+        stage('Extrair Versao do Frontend') {
             steps {
-                echo '=== Detectando versão do Frontend a partir do package.json ==='
+                echo '=== Detectando versao do Frontend a partir do package.json ==='
                 dir('ecommerce-web') {
                     script {
                         def frontVer = sh(
@@ -34,15 +34,15 @@ pipeline {
                             frontVer = '1.0.0'
                         }
                         env.APP_VERSION = frontVer
-                        echo "Versão definida para o release do Frontend: ${env.APP_VERSION}"
+                        echo "Versao definida para o release do Frontend: ${env.APP_VERSION}"
                     }
                 }
             }
         }
 
-        stage('📦 Build Vite') {
+        stage('Build Vite') {
             steps {
-                echo '=== Instalando dependências e compilando o Frontend ==='
+                echo '=== Instalando dependencias e compilando o Frontend ==='
                 dir('ecommerce-web') {
                     sh '''
                         npm ci --prefer-offline
@@ -52,9 +52,9 @@ pipeline {
             }
         }
 
-        stage('🐳 Docker Build') {
+        stage('Docker Build') {
             steps {
-                echo "=== Construindo imagem Docker do Frontend (Versão: ${env.APP_VERSION}, Build: #${BUILD_NUMBER}) ==="
+                echo "=== Construindo imagem Docker do Frontend (Versao: ${env.APP_VERSION}, Build: #${BUILD_NUMBER}) ==="
                 dir('ecommerce-web') {
                     sh '''
                         docker build \
@@ -67,15 +67,15 @@ pipeline {
             }
         }
 
-        stage('🚀 Deploy') {
+        stage('Deploy') {
             steps {
-                echo "=== Parando container antigo e subindo novo com versão ${env.APP_VERSION} ==="
+                echo "=== Parando container antigo e subindo novo com versao ${env.APP_VERSION} ==="
                 sh '''
                     # Para e remove o container anterior (se existir)
                     docker stop ${CONTAINER_NAME} || true
                     docker rm   ${CONTAINER_NAME} || true
 
-                    # Sobe o novo container do Frontend (Nginx na porta 3002 externa, 80 interna) conectado à rede
+                    # Sobe o novo container do Frontend (Nginx na porta 3002 externa, 80 interna) conectado a rede
                     docker run \
                         --name ${CONTAINER_NAME} \
                         --network jenkins_jenkins_net \
@@ -87,13 +87,13 @@ pipeline {
             }
         }
 
-        stage('✅ Health Check') {
+        stage('Health Check') {
             steps {
-                echo '=== Verificando se o Frontend está respondendo ==='
+                echo '=== Verificando se o Frontend esta respondendo ==='
                 sh '''
                     sleep 5
                     curl -f http://${CONTAINER_NAME} || \
-                        (echo "ERRO: Frontend não respondeu!" && exit 1)
+                        (echo "ERRO: Frontend nao respondeu!" && exit 1)
                 '''
             }
         }
@@ -101,10 +101,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline do Frontend concluída com sucesso! Versão: ${env.APP_VERSION} (Build #${BUILD_NUMBER})"
+            echo "Pipeline do Frontend concluida com sucesso! Versao: ${env.APP_VERSION} (Build #${BUILD_NUMBER})"
         }
         failure {
-            echo "❌ Pipeline do Frontend FALHOU no build #${BUILD_NUMBER}."
+            echo "Pipeline do Frontend FALHOU no build #${BUILD_NUMBER}."
         }
         always {
             sh 'docker image prune -f || true'
