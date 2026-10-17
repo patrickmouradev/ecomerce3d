@@ -1,8 +1,10 @@
-package com.print3d.ecommerce.repository;
+﻿package com.print3d.ecommerce.repository;
 
 import com.print3d.ecommerce.model.Banner;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,4 +18,12 @@ public interface BannerRepository extends JpaRepository<Banner, UUID> {
 
     @Query("SELECT b FROM Banner b JOIN FETCH b.product p ORDER BY b.displayOrder ASC")
     List<Banner> findAllBanners();
+
+    List<Banner> findByProductIdOrderByDisplayOrderAsc(UUID productId);
+
+    List<Banner> findByProductIdAndActiveTrueOrderByDisplayOrderAsc(UUID productId);
+
+    @Modifying
+    @Query("DELETE FROM Banner b WHERE b.product.id = :productId")
+    void deleteByProductId(@Param("productId") UUID productId);
 }

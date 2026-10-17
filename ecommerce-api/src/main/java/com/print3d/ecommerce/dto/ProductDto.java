@@ -68,6 +68,8 @@ public class ProductDto {
 
     private List<String> imagesVideosPaths;
 
+    private List<String> bannerImagesPaths;
+
     private String createdAt;
     private String updatedAt;
 }

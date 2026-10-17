@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Jenkinsfile — Pipeline do Frontend (React + Vite + Nginx)
 // Repositório: d:\GIT\Projeto _Loja_3D\ecommerce-web
 // Trigger: Manual / Push
@@ -21,6 +21,25 @@ pipeline {
             }
         }
 
+        stage('🏷️ Extrair Versão do Frontend') {
+            steps {
+                echo '=== Detectando versão do Frontend a partir do package.json ==='
+                dir('ecommerce-web') {
+                    script {
+                        def frontVer = sh(
+                            script: 'node -p "require(\'./package.json\').version" 2>/dev/null || grep -m 1 "\\"version\\"" package.json | sed -E "s/.*\\"version\\": *\\"([^\\"]+)\\".*/\\1/" | tr -d " \t\r\n"',
+                            returnStdout: true
+                        ).trim()
+                        if (!frontVer || frontVer.contains('null')) {
+                            frontVer = '1.0.0'
+                        }
+                        env.APP_VERSION = frontVer
+                        echo "Versão definida para o release do Frontend: ${env.APP_VERSION}"
+                    }
+                }
+            }
+        }
+
         stage('📦 Build Vite') {
             steps {
                 echo '=== Instalando dependências e compilando o Frontend ==='
@@ -35,12 +54,13 @@ pipeline {
 
         stage('🐳 Docker Build') {
             steps {
-                echo '=== Construindo imagem Docker do Frontend ==='
+                echo "=== Construindo imagem Docker do Frontend (Versão: ${env.APP_VERSION}, Build: #${BUILD_NUMBER}) ==="
                 dir('ecommerce-web') {
                     sh '''
                         docker build \
+                            -t ${DOCKER_IMAGE}:${APP_VERSION} \
+                            -t ${DOCKER_IMAGE}:${APP_VERSION}-${BUILD_NUMBER} \
                             -t ${DOCKER_IMAGE}:latest \
-                            -t ${DOCKER_IMAGE}:${BUILD_NUMBER} \
                             .
                     '''
                 }
@@ -49,7 +69,7 @@ pipeline {
 
         stage('🚀 Deploy') {
             steps {
-                echo '=== Parando container antigo e subindo novo ==='
+                echo "=== Parando container antigo e subindo novo com versão ${env.APP_VERSION} ==="
                 sh '''
                     # Para e remove o container anterior (se existir)
                     docker stop ${CONTAINER_NAME} || true
@@ -62,7 +82,7 @@ pipeline {
                         --restart=always \
                         -d \
                         -p ${APP_PORT}:80 \
-                        ${DOCKER_IMAGE}:latest
+                        ${DOCKER_IMAGE}:${APP_VERSION}
                 '''
             }
         }
@@ -81,7 +101,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline do Frontend concluída com sucesso! Build #${BUILD_NUMBER}"
+            echo "✅ Pipeline do Frontend concluída com sucesso! Versão: ${env.APP_VERSION} (Build #${BUILD_NUMBER})"
         }
         failure {
             echo "❌ Pipeline do Frontend FALHOU no build #${BUILD_NUMBER}."

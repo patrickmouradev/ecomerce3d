@@ -1,8 +1,9 @@
-package com.print3d.ecommerce.service;
+﻿package com.print3d.ecommerce.service;
 
 import com.print3d.ecommerce.dto.PricingResult;
 import com.print3d.ecommerce.dto.ProductDto;
 import com.print3d.ecommerce.dto.ProductFilamentDto;
+import com.print3d.ecommerce.model.Banner;
 import com.print3d.ecommerce.model.Filament;
 import com.print3d.ecommerce.model.Product;
 import com.print3d.ecommerce.model.ProductFilament;
@@ -10,22 +11,17 @@ import com.print3d.ecommerce.dto.ProductAccessoryDto;
 import com.print3d.ecommerce.model.Accessory;
 import com.print3d.ecommerce.model.ProductAccessory;
 import com.print3d.ecommerce.repository.AccessoryRepository;
+import com.print3d.ecommerce.repository.BannerRepository;
 import com.print3d.ecommerce.repository.FilamentRepository;
 import com.print3d.ecommerce.repository.ProductRepository;
-import com.print3d.ecommerce.repository.SystemParameterRepository;
 import com.print3d.ecommerce.util.DatePatterns;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -37,18 +33,21 @@ public class ProductService {
     private final FilamentRepository filamentRepository;
     private final AccessoryRepository accessoryRepository;
     private final PricingCalculatorService pricingCalculatorService;
-
-    @Value("${app.upload.dir}")
-    private String uploadDir;
+    private final FileStorageService fileStorageService;
+    private final BannerRepository bannerRepository;
 
     public ProductService(ProductRepository productRepository,
                           FilamentRepository filamentRepository,
                           AccessoryRepository accessoryRepository,
-                          PricingCalculatorService pricingCalculatorService) {
+                          PricingCalculatorService pricingCalculatorService,
+                          FileStorageService fileStorageService,
+                          BannerRepository bannerRepository) {
         this.productRepository = productRepository;
         this.filamentRepository = filamentRepository;
         this.accessoryRepository = accessoryRepository;
         this.pricingCalculatorService = pricingCalculatorService;
+        this.fileStorageService = fileStorageService;
+        this.bannerRepository = bannerRepository;
     }
 
     @Transactional(readOnly = true)
@@ -120,6 +119,12 @@ public class ProductService {
         }
 
         Product saved = productRepository.save(product);
+
+        // Sincroniza as imagens escolhidas para o banner do produto
+        if (dto.getBannerImagesPaths() != null) {
+            syncProductBanners(saved, dto.getBannerImagesPaths());
+        }
+
         return convertToDto(saved);
     }
 
@@ -168,6 +173,12 @@ public class ProductService {
         }
 
         Product updated = productRepository.save(product);
+
+        // Sincroniza as imagens escolhidas para o banner do produto
+        if (dto.getBannerImagesPaths() != null) {
+            syncProductBanners(updated, dto.getBannerImagesPaths());
+        }
+
         return convertToDto(updated);
     }
 
@@ -177,6 +188,13 @@ public class ProductService {
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
         product.setActive(false);
         productRepository.save(product);
+
+        // Inativa os banners vinculados a este produto
+        List<Banner> banners = bannerRepository.findByProductIdOrderByDisplayOrderAsc(id);
+        for (Banner banner : banners) {
+            banner.setActive(false);
+        }
+        bannerRepository.saveAll(banners);
     }
 
     /**
@@ -221,38 +239,42 @@ public class ProductService {
     }
 
     /**
-     * Armazena uma foto ou vídeo localmente e retorna o path de URL correspondente
+     * Armazena uma foto ou vídeo localmente através do FileStorageService e retorna o path de URL correspondente
      */
     public String saveUploadedFile(MultipartFile file) throws IOException {
-        // Garante que o diretório existe
-        File uploadFolder = new File(uploadDir, "products");
-        if (!uploadFolder.exists()) {
-            uploadFolder.mkdirs();
+        return fileStorageService.storeFile(file, "products");
+    }
+
+    private void syncProductBanners(Product product, List<String> bannerImagesPaths) {
+        bannerRepository.deleteByProductId(product.getId());
+        if (bannerImagesPaths == null || bannerImagesPaths.isEmpty()) {
+            return;
         }
 
-        String originalFilename = file.getOriginalFilename();
-        String extension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        List<Banner> banners = new ArrayList<>();
+        int order = 0;
+        for (String imagePath : bannerImagesPaths) {
+            if (imagePath != null && !imagePath.trim().isEmpty()) {
+                banners.add(Banner.builder()
+                        .title(product.getName())
+                        .imagePath(imagePath.trim())
+                        .product(product)
+                        .displayOrder(order++)
+                        .active(product.isActive())
+                        .build());
+            }
         }
 
-        // Gera nome aleatório único para o arquivo
-        String randomFilename = UUID.randomUUID().toString() + extension;
-        Path destination = Paths.get(uploadFolder.getAbsolutePath(), randomFilename);
-
-        Files.copy(file.getInputStream(), destination);
-
-        // Retorna a URL relativa mapeada para a rota do recurso estático
-        return "/uploads/products/" + randomFilename;
+        if (!banners.isEmpty()) {
+            bannerRepository.saveAll(banners);
+        }
     }
 
     private Sort buildSort(String sortBy, String direction) {
         Sort.Direction dir = direction.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
-        // Tratamento especial para maior/menor valor
         if (sortBy.equalsIgnoreCase("price")) {
             return Sort.by(dir, "salePriceParticular");
         }
-        // Data adicionada (Newest/Oldest)
         if (sortBy.equalsIgnoreCase("date")) {
             return Sort.by(dir, "createdAt");
         }
@@ -295,6 +317,12 @@ public class ProductService {
 
         com.print3d.ecommerce.dto.PricingResult pricing = pricingCalculatorService.calculatePricing(product);
 
+        // Busca as imagens que estão ativas no banner deste produto
+        List<String> bannerPaths = bannerRepository.findByProductIdAndActiveTrueOrderByDisplayOrderAsc(product.getId())
+                .stream()
+                .map(Banner::getImagePath)
+                .toList();
+
         return ProductDto.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -320,6 +348,7 @@ public class ProductService {
                 .salePriceShoppe(product.getSalePriceShoppe())
                 .active(product.isActive())
                 .imagesVideosPaths(product.getImagesVideosPaths())
+                .bannerImagesPaths(bannerPaths)
                 .createdAt(product.getCreatedAt() != null ? product.getCreatedAt().format(DatePatterns.DATE_TIME_FORMATTER) : null)
                 .updatedAt(product.getUpdatedAt() != null ? product.getUpdatedAt().format(DatePatterns.DATE_TIME_FORMATTER) : null)
                 .build();

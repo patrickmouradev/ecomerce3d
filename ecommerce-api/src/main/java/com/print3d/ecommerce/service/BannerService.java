@@ -1,4 +1,4 @@
-package com.print3d.ecommerce.service;
+﻿package com.print3d.ecommerce.service;
 
 import com.print3d.ecommerce.dto.BannerDto;
 import com.print3d.ecommerce.model.Banner;
@@ -7,7 +7,9 @@ import com.print3d.ecommerce.repository.BannerRepository;
 import com.print3d.ecommerce.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,10 +18,14 @@ public class BannerService {
 
     private final BannerRepository bannerRepository;
     private final ProductRepository productRepository;
+    private final FileStorageService fileStorageService;
 
-    public BannerService(BannerRepository bannerRepository, ProductRepository productRepository) {
+    public BannerService(BannerRepository bannerRepository,
+                         ProductRepository productRepository,
+                         FileStorageService fileStorageService) {
         this.bannerRepository = bannerRepository;
         this.productRepository = productRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -88,6 +94,13 @@ public class BannerService {
                 .orElseThrow(() -> new RuntimeException("Banner não encontrado"));
         banner.setActive(false);
         bannerRepository.save(banner);
+    }
+
+    /**
+     * Armazena fisicamente a imagem do banner através do FileStorageService
+     */
+    public String saveUploadedBanner(MultipartFile file) throws IOException {
+        return fileStorageService.storeFile(file, "banners");
     }
 
     private BannerDto convertToDto(Banner banner) {

@@ -1,4 +1,4 @@
-package com.print3d.ecommerce.controller;
+﻿package com.print3d.ecommerce.controller;
 
 import com.print3d.ecommerce.dto.BannerDto;
 import com.print3d.ecommerce.service.BannerService;
@@ -7,10 +7,14 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -72,5 +76,18 @@ public class BannerController {
     public ResponseEntity<Void> logicalDelete(@PathVariable UUID id) {
         bannerService.logicalDelete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping(value = "/api/admin/banners/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Faz upload de imagem para um banner")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<Map<String, String>> uploadBanner(@RequestParam("file") MultipartFile file) {
+        try {
+            String fileUrl = bannerService.saveUploadedBanner(file);
+            return ResponseEntity.ok(Collections.singletonMap("fileUrl", fileUrl));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Erro ao fazer upload do banner: " + e.getMessage()));
+        }
     }
 }

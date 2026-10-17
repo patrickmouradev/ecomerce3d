@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Jenkinsfile — Pipeline do Backend (Spring Boot)
 // Repositório: d:\GIT\Projeto _Loja_3D\ecommerce-api
 // Trigger: Manual / Push
@@ -19,9 +19,10 @@ pipeline {
         MERCADO_PAGO_ACCESS_TOKEN = credentials('LOJA_MERCADO_PAGO_ACCESS_TOKEN')
 
         // Docker
-        DOCKER_IMAGE   = 'patrickmoura/ecommerce-api'
-        CONTAINER_NAME = '3dprintpng-api'
-        APP_PORT       = '8088'
+        DOCKER_IMAGE     = 'patrickmoura/ecommerce-api'
+        CONTAINER_NAME   = '3dprintpng-api'
+        APP_PORT         = '8088'
+        UPLOADS_HOST_DIR = '/app/uploads'
     }
 
     stages {
@@ -29,6 +30,25 @@ pipeline {
             steps {
                 echo '=== Clonando repositório ==='
                 checkout scm
+            }
+        }
+
+        stage('🏷️ Extrair Versão do POM') {
+            steps {
+                echo '=== Detectando versão da aplicação a partir do pom.xml ==='
+                dir('ecommerce-api') {
+                    script {
+                        def pomVer = sh(
+                            script: 'mvn help:evaluate -Dexpression=project.version -q -DforceStdout 2>/dev/null || grep -m 1 "<version>" pom.xml | sed -E "s/.*<version>([^<]+)<\\/version>.*/\\1/" | tr -d " \t\r\n"',
+                            returnStdout: true
+                        ).trim()
+                        if (!pomVer || pomVer.contains('[INFO]') || pomVer.contains('null')) {
+                            pomVer = '1.0.0'
+                        }
+                        env.APP_VERSION = pomVer
+                        echo "Versão definida para o release do Backend: ${env.APP_VERSION}"
+                    }
+                }
             }
         }
 
@@ -48,13 +68,14 @@ pipeline {
 
         stage('🐳 Docker Build') {
             steps {
-                echo '=== Construindo imagem Docker do Backend ==='
+                echo "=== Construindo imagem Docker do Backend (Versão: ${env.APP_VERSION}, Build: #${BUILD_NUMBER}) ==="
                 dir('ecommerce-api') {
                     sh '''
                         docker build \
                             --build-arg JAR_FILE=target/*.jar \
+                            -t ${DOCKER_IMAGE}:${APP_VERSION} \
+                            -t ${DOCKER_IMAGE}:${APP_VERSION}-${BUILD_NUMBER} \
                             -t ${DOCKER_IMAGE}:latest \
-                            -t ${DOCKER_IMAGE}:${BUILD_NUMBER} \
                             .
                     '''
                 }
@@ -63,7 +84,7 @@ pipeline {
 
         stage('🚀 Deploy') {
             steps {
-                echo '=== Parando container antigo e subindo novo ==='
+                echo "=== Parando container antigo e subindo novo com versão ${env.APP_VERSION} ==="
                 sh '''
                     # Para e remove o container anterior (se existir)
                     docker stop ${CONTAINER_NAME} || true
@@ -86,8 +107,9 @@ pipeline {
                         -e MERCADO_PAGO_PUBLIC_KEY="${MERCADO_PAGO_PUBLIC_KEY}" \
                         -e MERCADO_PAGO_ACCESS_TOKEN="${MERCADO_PAGO_ACCESS_TOKEN}" \
                         -e SERVER_PORT="${APP_PORT}" \
-                        -v /app/uploads:/app/uploads \
-                        ${DOCKER_IMAGE}:latest
+                        -e UPLOAD_DIR=/app/uploads \
+                        -v ${UPLOADS_HOST_DIR}:/app/uploads \
+                        ${DOCKER_IMAGE}:${APP_VERSION}
                 '''
             }
         }
@@ -106,7 +128,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline do Backend concluída com sucesso! Build #${BUILD_NUMBER}"
+            echo "✅ Pipeline do Backend concluída com sucesso! Versão: ${env.APP_VERSION} (Build #${BUILD_NUMBER})"
         }
         failure {
             echo "❌ Pipeline do Backend FALHOU no build #${BUILD_NUMBER}."

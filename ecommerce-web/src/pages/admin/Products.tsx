@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { getAccessories, createAccessory, type Accessory } from '../../services/accessoryService';
-import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload, Copy, ChevronLeft, ChevronRight, Star, Paperclip, Check } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload, Copy, ChevronLeft, ChevronRight, Star, Paperclip, Check, Sparkles } from 'lucide-react';
 
 interface ProductFilament {
   filamentId: string;
@@ -37,6 +37,7 @@ interface Product {
   salePriceShoppe: number;
   active: boolean;
   imagesVideosPaths: string[];
+  bannerImagesPaths?: string[];
   energyCostTotal: number;
   printerWearTotal: number;
   packagingCost: number;
@@ -99,6 +100,7 @@ export const Products: React.FC = () => {
   const [salePriceShoppe, setSalePriceShoppe] = useState('');
   const [active, setActive] = useState(true);
   const [imagesVideosPaths, setImagesVideosPaths] = useState<string[]>([]);
+  const [bannerImagesPaths, setBannerImagesPaths] = useState<string[]>([]);
 
   // Calculadora
   const [suggestedPriceShoppe, setSuggestedPriceShoppe] = useState<number | null>(null);
@@ -270,11 +272,56 @@ export const Products: React.FC = () => {
   };
 
   const setAsCover = (index: number) => {
-    if (index === 0) return;
     const newPaths = [...imagesVideosPaths];
     const [selected] = newPaths.splice(index, 1);
     newPaths.unshift(selected);
     setImagesVideosPaths(newPaths);
+  };
+
+  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files);
+    setUploading(true);
+    setUploadProgress(`Enviando ${fileList.length} banner(s)...`);
+
+    try {
+      const uploadPromises = fileList.map(async (file, index) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await api.post('/api/admin/products/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        return { index, fileUrl: response.data.fileUrl as string };
+      });
+
+      const results = await Promise.all(uploadPromises);
+      results.sort((a, b) => a.index - b.index);
+      const newUrls = results.map(r => r.fileUrl);
+
+      setImagesVideosPaths((prev) => [...prev, ...newUrls]);
+      setBannerImagesPaths((prev) => [...prev, ...newUrls]);
+    } catch (err) {
+      console.error("Erro ao enviar arquivos de banner", err);
+      alert("Falha ao fazer upload de banner(s)");
+    } finally {
+      setUploading(false);
+      setUploadProgress('');
+      e.target.value = '';
+    }
+  };
+
+  const toggleBanner = (path: string) => {
+    setBannerImagesPaths((prev) => {
+      if (prev.includes(path)) {
+        return prev.filter((p) => p !== path);
+      } else {
+        return [...prev, path];
+      }
+    });
   };
 
   const handleMediaDragStart = (e: React.DragEvent, index: number) => {
@@ -309,6 +356,7 @@ export const Products: React.FC = () => {
     setSalePriceShoppe('');
     setActive(true);
     setImagesVideosPaths([]);
+    setBannerImagesPaths([]);
     setSuggestedPriceShoppe(null);
     setSuggestedPriceParticular(null);
     setProductionCost(null);
@@ -349,6 +397,7 @@ export const Products: React.FC = () => {
     setSalePriceShoppe(prod.salePriceShoppe.toString());
     setActive(prod.active);
     setImagesVideosPaths(prod.imagesVideosPaths || []);
+    setBannerImagesPaths(prod.bannerImagesPaths || []);
     setSuggestedPriceShoppe(prod.suggestedPriceShoppe);
     setSuggestedPriceParticular(prod.suggestedPriceParticular);
     setProductionCost(prod.productionCost);
@@ -389,6 +438,7 @@ export const Products: React.FC = () => {
     setSalePriceShoppe(prod.salePriceShoppe.toString());
     setActive(prod.active);
     setImagesVideosPaths(prod.imagesVideosPaths || []);
+    setBannerImagesPaths(prod.bannerImagesPaths || []);
     setSuggestedPriceShoppe(prod.suggestedPriceShoppe);
     setSuggestedPriceParticular(prod.suggestedPriceParticular);
     setProductionCost(prod.productionCost);
@@ -610,7 +660,8 @@ export const Products: React.FC = () => {
       salePriceParticular: priceParticular,
       salePriceShoppe: priceShoppe,
       active: active,
-      imagesVideosPaths: imagesVideosPaths
+      imagesVideosPaths: imagesVideosPaths,
+      bannerImagesPaths: bannerImagesPaths
     };
 
     try {
@@ -638,7 +689,11 @@ export const Products: React.FC = () => {
   };
 
   const removeMedia = (indexToRemove: number) => {
+    const pathToRemove = imagesVideosPaths[indexToRemove];
     setImagesVideosPaths((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    if (pathToRemove) {
+      setBannerImagesPaths((prev) => prev.filter((p) => p !== pathToRemove));
+    }
   };
 
   return (
@@ -1171,7 +1226,27 @@ export const Products: React.FC = () => {
               {/* Upload de Imagens / Mídia e Ordem do Carrossel */}
               <div className="form-group" style={{ marginTop: '0.75rem' }}>
                 <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Fotos e Vídeos da Peça ({imagesVideosPaths.length})</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <span>Fotos e Vídeos da Peça ({imagesVideosPaths.length})</span>
+                    {bannerImagesPaths.length > 0 && (
+                      <span
+                        style={{
+                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                          color: '#000',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '12px',
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        <Sparkles size={11} fill="#000" />
+                        {bannerImagesPaths.length} no Banner
+                      </span>
+                    )}
+                  </div>
                   {imagesVideosPaths.length > 0 && (
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'none', fontWeight: 400 }}>
                       A 1ª foto é a capa do carrossel
@@ -1179,8 +1254,8 @@ export const Products: React.FC = () => {
                   )}
                 </label>
                 
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <label className="btn btn-secondary" style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem', cursor: uploading ? 'not-allowed' : 'pointer' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label className="btn btn-secondary" style={{ padding: '0.6rem 1.1rem', fontSize: '0.85rem', cursor: uploading ? 'not-allowed' : 'pointer' }}>
                     <Upload size={15} />
                     {uploading ? (uploadProgress || 'Enviando...') : 'Escolher Várias Fotos / Vídeos'}
                     <input 
@@ -1192,22 +1267,75 @@ export const Products: React.FC = () => {
                       disabled={uploading}
                     />
                   </label>
+
+                  <label 
+                    className="btn btn-secondary" 
+                    style={{ 
+                      padding: '0.6rem 1.1rem', 
+                      fontSize: '0.85rem', 
+                      cursor: uploading ? 'not-allowed' : 'pointer',
+                      border: '1px solid rgba(245, 158, 11, 0.4)',
+                      background: 'rgba(245, 158, 11, 0.08)',
+                      color: '#f59e0b',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                    title="Faz upload e já adiciona automaticamente as fotos na seleção do Banner de Destaque"
+                  >
+                    <Sparkles size={14} />
+                    Upload Direto para Banner
+                    <input 
+                      type="file" 
+                      multiple
+                      accept="image/*" 
+                      onChange={handleBannerFileUpload} 
+                      style={{ display: 'none' }}
+                      disabled={uploading}
+                    />
+                  </label>
+
+                  {bannerImagesPaths.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setBannerImagesPaths([])}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-muted)',
+                        padding: '0.45rem 0.8rem',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.75rem',
+                        cursor: 'pointer'
+                      }}
+                      title="Desmarca todas as fotos do banner"
+                    >
+                      Limpar Banners ({bannerImagesPaths.length})
+                    </button>
+                  )}
+
                   {uploading && <Loader className="animate-spin" size={16} style={{ color: 'var(--primary)' }} />}
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Pressione Ctrl ou Shift para selecionar múltiplas fotos de uma vez.
+                    Pressione Ctrl ou Shift para selecionar múltiplos arquivos de uma vez.
                   </span>
                 </div>
 
                 {/* Grid e Reordenação do Carrossel */}
                 {imagesVideosPaths.length > 0 && (
                   <div style={{ marginTop: '1rem' }}>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                      Arraste as fotos ou utilize as setas <strong>&lt;</strong> e <strong>&gt;</strong> para definir a ordem no carrossel:
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                        Arraste as fotos para ordenar e clique no botão <strong>Escolher Banner</strong> para enviar ao carrossel de destaque:
+                      </p>
+                      <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600 }}>
+                        {bannerImagesPaths.length} de {imagesVideosPaths.length} foto(s) no Banner
+                      </span>
+                    </div>
                     
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                       {imagesVideosPaths.map((path, idx) => {
                         const isCover = idx === 0;
+                        const isBanner = bannerImagesPaths.includes(path);
                         const isVideo = path.toLowerCase().endsWith('.mp4');
                         const isDragging = draggedMediaIndex === idx;
 
@@ -1220,12 +1348,12 @@ export const Products: React.FC = () => {
                             onDrop={(e) => handleMediaDrop(e, idx)}
                             style={{
                               position: 'relative',
-                              width: '115px',
+                              width: '125px',
                               borderRadius: 'var(--radius-sm)',
                               overflow: 'hidden',
-                              border: isCover ? '2px solid var(--primary)' : '1px solid var(--border-color)',
+                              border: isBanner ? '2px solid #f59e0b' : (isCover ? '2px solid var(--primary)' : '1px solid var(--border-color)'),
                               background: 'var(--bg-surface-1)',
-                              boxShadow: isCover ? '0 0 10px var(--primary-glow)' : 'none',
+                              boxShadow: isBanner ? '0 0 12px rgba(245, 158, 11, 0.25)' : (isCover ? '0 0 10px var(--primary-glow)' : 'none'),
                               opacity: isDragging ? 0.4 : 1,
                               cursor: 'grab',
                               transition: 'var(--transition-fast)'
@@ -1252,6 +1380,30 @@ export const Products: React.FC = () => {
                               {isCover && <Star size={10} fill="#000" />}
                               {isCover ? 'Capa' : `${idx + 1}º`}
                             </div>
+
+                            {/* Badge Indicativo se está no Banner */}
+                            {isBanner && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  top: 26,
+                                  left: 4,
+                                  zIndex: 2,
+                                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                  color: '#000',
+                                  padding: '0.12rem 0.35rem',
+                                  borderRadius: '3px',
+                                  fontSize: '0.62rem',
+                                  fontWeight: 800,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.2rem',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.4)'
+                                }}
+                              >
+                                <Sparkles size={9} fill="#000" /> Banner
+                              </div>
+                            )}
 
                             {/* Botão de Excluir Foto */}
                             <button
@@ -1293,7 +1445,7 @@ export const Products: React.FC = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                padding: '0.3rem 0.4rem',
+                                padding: '0.25rem 0.4rem',
                                 background: 'rgba(255, 255, 255, 0.03)',
                                 borderTop: '1px solid var(--border-color)'
                               }}
@@ -1308,15 +1460,15 @@ export const Products: React.FC = () => {
                                   border: 'none',
                                   color: idx === 0 ? 'var(--text-muted)' : '#fff',
                                   borderRadius: '3px',
-                                  width: '24px',
-                                  height: '24px',
+                                  width: '22px',
+                                  height: '22px',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   cursor: idx === 0 ? 'not-allowed' : 'pointer'
                                 }}
                               >
-                                <ChevronLeft size={14} />
+                                <ChevronLeft size={13} />
                               </button>
 
                               {!isCover && (
@@ -1348,8 +1500,8 @@ export const Products: React.FC = () => {
                                   border: 'none',
                                   color: idx === imagesVideosPaths.length - 1 ? 'var(--text-muted)' : '#fff',
                                   borderRadius: '3px',
-                                  width: '24px',
-                                  height: '24px',
+                                  width: '22px',
+                                  height: '22px',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -1357,9 +1509,38 @@ export const Products: React.FC = () => {
                                   marginLeft: isCover ? 'auto' : undefined
                                 }}
                               >
-                                <ChevronRight size={14} />
+                                <ChevronRight size={13} />
                               </button>
                             </div>
+
+                            {/* Botão Dedicado para Escolher / Remover do Banner */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleBanner(path);
+                              }}
+                              title={isBanner ? "Remover imagem do Banner de Destaque" : "Escolher imagem para o Banner de Destaque"}
+                              style={{
+                                width: '100%',
+                                padding: '0.35rem 0.2rem',
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.3rem',
+                                border: 'none',
+                                borderTop: '1px solid var(--border-color)',
+                                cursor: 'pointer',
+                                background: isBanner ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'rgba(255, 255, 255, 0.06)',
+                                color: isBanner ? '#000' : 'var(--text-secondary)',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              <Sparkles size={11} fill={isBanner ? "#000" : "none"} />
+                              {isBanner ? '★ No Banner' : '☆ Escolher Banner'}
+                            </button>
                           </div>
                         );
                       })}

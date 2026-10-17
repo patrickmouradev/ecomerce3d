@@ -1,33 +1,48 @@
-package com.print3d.ecommerce.config;
+﻿package com.print3d.ecommerce.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.concurrent.TimeUnit;
 
 @Configuration
 public class MvcConfig implements WebMvcConfigurer {
+
+    private static final Logger log = LoggerFactory.getLogger(MvcConfig.class);
 
     @Value("${app.upload.dir}")
     private String uploadDir;
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Assegura que o diretório de uploads existe
-        File uploadFolder = new File(uploadDir);
-        if (!uploadFolder.exists()) {
-            uploadFolder.mkdirs();
-        }
+        try {
+            Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
 
-        String path = uploadFolder.getAbsolutePath();
-        // Corrige padrão de barras para o Windows se necessário
-        if (!path.endsWith(File.separator)) {
-            path += File.separator;
-        }
+            String locationUri = uploadPath.toUri().toString();
+            if (!locationUri.endsWith("/")) {
+                locationUri += "/";
+            }
 
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + path);
+            log.info("Mapeando rota estática /uploads/** para localização física: {}", locationUri);
+
+            registry.addResourceHandler("/uploads/**")
+                    .addResourceLocations(locationUri)
+                    .setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
+
+        } catch (IOException e) {
+            log.error("Erro ao configurar manipulador de recursos estáticos de upload", e);
+        }
     }
 }

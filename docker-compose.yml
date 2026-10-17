@@ -1,4 +1,4 @@
-version: '3.8'
+﻿version: '3.8'
 
 services:
   # Banco de Dados PostgreSQL
@@ -21,7 +21,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Back-end API (Spring Boot Java 25) - Pronto para uso pós-build
+  # Back-end API (Spring Boot Java 25) - Pronto para uso pÃ³s-build
   ecommerce-api:
     image: patrickmoura/ecommerce-api:latest
     container_name: 3dprintpng-api
@@ -41,6 +41,7 @@ services:
       MERCADO_PAGO_PUBLIC_KEY: ${MERCADO_PAGO_PUBLIC_KEY}
       MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN}
       SERVER_PORT: 8088
+      UPLOAD_DIR: /app/uploads
     volumes:
       - ./uploads:/app/uploads
     depends_on:
@@ -49,7 +50,7 @@ services:
     networks:
       - ecommerce-net
 
-  # Front-end Web (React + Nginx) - Pronto para uso pós-build
+  # Front-end Web (React + Nginx) - Pronto para uso pÃ³s-build
   ecommerce-web:
     image: patrickmoura/ecommerce-web:latest
     container_name: 3dprintpng-web
@@ -70,3 +71,4 @@ volumes:
 networks:
   ecommerce-net:
     driver: bridge
+
