@@ -251,6 +251,7 @@ export const Products: React.FC = () => {
       const newUrls = results.map(r => r.fileUrl);
 
       setImagesVideosPaths((prev) => [...prev, ...newUrls]);
+      setBannerImagesPaths((prev) => [...prev, ...newUrls]);
     } catch (err) {
       console.error("Erro ao enviar arquivos", err);
       alert("Falha ao fazer upload de um ou mais arquivos");
@@ -278,41 +279,6 @@ export const Products: React.FC = () => {
     setImagesVideosPaths(newPaths);
   };
 
-  const handleBannerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const fileList = Array.from(files);
-    setUploading(true);
-    setUploadProgress(`Enviando ${fileList.length} banner(s)...`);
-
-    try {
-      const uploadPromises = fileList.map(async (file, index) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        const response = await api.post('/api/admin/products/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
-        return { index, fileUrl: response.data.fileUrl as string };
-      });
-
-      const results = await Promise.all(uploadPromises);
-      results.sort((a, b) => a.index - b.index);
-      const newUrls = results.map(r => r.fileUrl);
-
-      setImagesVideosPaths((prev) => [...prev, ...newUrls]);
-      setBannerImagesPaths((prev) => [...prev, ...newUrls]);
-    } catch (err) {
-      console.error("Erro ao enviar arquivos de banner", err);
-      alert("Falha ao fazer upload de banner(s)");
-    } finally {
-      setUploading(false);
-      setUploadProgress('');
-      e.target.value = '';
-    }
-  };
 
   const toggleBanner = (path: string) => {
     setBannerImagesPaths((prev) => {
@@ -397,7 +363,7 @@ export const Products: React.FC = () => {
     setSalePriceShoppe(prod.salePriceShoppe.toString());
     setActive(prod.active);
     setImagesVideosPaths(prod.imagesVideosPaths || []);
-    setBannerImagesPaths(prod.bannerImagesPaths || []);
+    setBannerImagesPaths(prod.bannerImagesPaths && prod.bannerImagesPaths.length > 0 ? prod.bannerImagesPaths : (prod.imagesVideosPaths || []));
     setSuggestedPriceShoppe(prod.suggestedPriceShoppe);
     setSuggestedPriceParticular(prod.suggestedPriceParticular);
     setProductionCost(prod.productionCost);
@@ -438,7 +404,7 @@ export const Products: React.FC = () => {
     setSalePriceShoppe(prod.salePriceShoppe.toString());
     setActive(prod.active);
     setImagesVideosPaths(prod.imagesVideosPaths || []);
-    setBannerImagesPaths(prod.bannerImagesPaths || []);
+    setBannerImagesPaths(prod.bannerImagesPaths && prod.bannerImagesPaths.length > 0 ? prod.bannerImagesPaths : (prod.imagesVideosPaths || []));
     setSuggestedPriceShoppe(prod.suggestedPriceShoppe);
     setSuggestedPriceParticular(prod.suggestedPriceParticular);
     setProductionCost(prod.productionCost);
@@ -1268,32 +1234,28 @@ export const Products: React.FC = () => {
                     />
                   </label>
 
-                  <label 
-                    className="btn btn-secondary" 
-                    style={{ 
-                      padding: '0.6rem 1.1rem', 
-                      fontSize: '0.85rem', 
-                      cursor: uploading ? 'not-allowed' : 'pointer',
-                      border: '1px solid rgba(245, 158, 11, 0.4)',
-                      background: 'rgba(245, 158, 11, 0.08)',
-                      color: '#f59e0b',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.4rem'
-                    }}
-                    title="Faz upload e já adiciona automaticamente as fotos na seleção do Banner de Destaque"
-                  >
-                    <Sparkles size={14} />
-                    Upload Direto para Banner
-                    <input 
-                      type="file" 
-                      multiple
-                      accept="image/*" 
-                      onChange={handleBannerFileUpload} 
-                      style={{ display: 'none' }}
-                      disabled={uploading}
-                    />
-                  </label>
+                  {imagesVideosPaths.length > 0 && bannerImagesPaths.length < imagesVideosPaths.length && (
+                    <button
+                      type="button"
+                      onClick={() => setBannerImagesPaths([...imagesVideosPaths])}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '0.6rem 1rem',
+                        fontSize: '0.85rem',
+                        borderColor: 'rgba(245, 158, 11, 0.4)',
+                        background: 'rgba(245, 158, 11, 0.08)',
+                        color: '#f59e0b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        cursor: 'pointer'
+                      }}
+                      title="Marca todas as fotos para irem para o Banner de Destaque"
+                    >
+                      <Sparkles size={14} />
+                      Marcar Todas no Banner
+                    </button>
+                  )}
 
                   {bannerImagesPaths.length > 0 && (
                     <button
@@ -1303,20 +1265,20 @@ export const Products: React.FC = () => {
                         background: 'none',
                         border: '1px solid var(--border-color)',
                         color: 'var(--text-muted)',
-                        padding: '0.45rem 0.8rem',
+                        padding: '0.55rem 0.8rem',
                         borderRadius: 'var(--radius-sm)',
-                        fontSize: '0.75rem',
+                        fontSize: '0.8rem',
                         cursor: 'pointer'
                       }}
                       title="Desmarca todas as fotos do banner"
                     >
-                      Limpar Banners ({bannerImagesPaths.length})
+                      Desmarcar Todas ({bannerImagesPaths.length})
                     </button>
                   )}
 
                   {uploading && <Loader className="animate-spin" size={16} style={{ color: 'var(--primary)' }} />}
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Pressione Ctrl ou Shift para selecionar múltiplos arquivos de uma vez.
+                    Por padrão todas as fotos já entram no Banner. Clique no botão de cada foto para desmarcar.
                   </span>
                 </div>
 
@@ -1325,7 +1287,7 @@ export const Products: React.FC = () => {
                   <div style={{ marginTop: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
-                        Arraste as fotos para ordenar e clique no botão <strong>Escolher Banner</strong> para enviar ao carrossel de destaque:
+                        Arraste as fotos para ordenar e clique no botão <strong>Adicionar ao Banner</strong> para enviar ao carrossel de destaque:
                       </p>
                       <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600 }}>
                         {bannerImagesPaths.length} de {imagesVideosPaths.length} foto(s) no Banner
@@ -1348,7 +1310,7 @@ export const Products: React.FC = () => {
                             onDrop={(e) => handleMediaDrop(e, idx)}
                             style={{
                               position: 'relative',
-                              width: '125px',
+                              width: '135px',
                               borderRadius: 'var(--radius-sm)',
                               overflow: 'hidden',
                               border: isBanner ? '2px solid #f59e0b' : (isCover ? '2px solid var(--primary)' : '1px solid var(--border-color)'),
@@ -1524,8 +1486,9 @@ export const Products: React.FC = () => {
                               style={{
                                 width: '100%',
                                 padding: '0.35rem 0.2rem',
-                                fontSize: '0.7rem',
+                                fontSize: '0.65rem',
                                 fontWeight: 700,
+                                whiteSpace: 'nowrap',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -1539,7 +1502,7 @@ export const Products: React.FC = () => {
                               }}
                             >
                               <Sparkles size={11} fill={isBanner ? "#000" : "none"} />
-                              {isBanner ? '★ No Banner' : '☆ Escolher Banner'}
+                              {isBanner ? 'Remover do Banner' : 'Adicionar ao Banner'}
                             </button>
                           </div>
                         );
