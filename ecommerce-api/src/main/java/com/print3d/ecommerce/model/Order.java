@@ -1,5 +1,6 @@
 package com.print3d.ecommerce.model;
 
+import com.print3d.ecommerce.cryptography.CryptographyConverter;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -38,6 +39,26 @@ public class Order {
 
     @Column(name = "mercado_pago_payment_id")
     private String mercadoPagoPaymentId;
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
+
+    @Column(name = "payment_status_detail", length = 100)
+    private String paymentStatusDetail;
+
+    @Column(name = "shipping_address_json", columnDefinition = "TEXT")
+    @Convert(converter = CryptographyConverter.class)
+    private String shippingAddressJson;
+
+    @Column(name = "customer_phone")
+    @Convert(converter = CryptographyConverter.class)
+    private String customerPhone;
+
+    @Column(name = "pix_qr_code", columnDefinition = "TEXT")
+    private String pixQrCode;
+
+    @Column(name = "pix_qr_code_base64", columnDefinition = "TEXT")
+    private String pixQrCodeBase64;
 
     @Column(name = "tracking_code")
     private String trackingCode;

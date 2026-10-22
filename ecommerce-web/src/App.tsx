@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import Catalog from './pages/Catalog';
+import Checkout from './pages/Checkout';
+import MyOrders from './pages/MyOrders';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -21,8 +23,10 @@ function App() {
           <Header />
           <main style={{ flex: 1 }}>
             <Routes>
-              {/* Rota Pública do Catálogo */}
+              {/* Rota Pública do Catálogo e Checkout */}
               <Route path="/" element={<Catalog />} />
+              <Route path="/checkout" element={<Checkout />} />
+              <Route path="/my-orders" element={<MyOrders />} />
               <Route path="/login" element={<Login />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />

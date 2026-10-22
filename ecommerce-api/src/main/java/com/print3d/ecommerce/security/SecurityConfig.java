@@ -38,6 +38,8 @@ public class SecurityConfig {
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/api/products/**").permitAll()
                 .requestMatchers("/api/banners").permitAll()
+                .requestMatchers("/api/checkout/config", "/api/checkout/shipping").permitAll()
+                .requestMatchers("/api/webhooks/mercadopago/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 
                 // Swagger UI e Docs

@@ -1,9 +1,11 @@
 package com.print3d.ecommerce.controller;
 
+import com.print3d.ecommerce.dto.OrderResponseDto;
 import com.print3d.ecommerce.model.Order;
 import com.print3d.ecommerce.model.User;
 import com.print3d.ecommerce.repository.OrderRepository;
 import com.print3d.ecommerce.repository.UserRepository;
+import com.print3d.ecommerce.service.CheckoutService;
 import com.print3d.ecommerce.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -12,11 +14,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -28,17 +30,42 @@ public class OrderController {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ReportService reportService;
+    private final CheckoutService checkoutService;
 
-    public OrderController(OrderRepository orderRepository, UserRepository userRepository, ReportService reportService) {
+    public OrderController(OrderRepository orderRepository,
+                           UserRepository userRepository,
+                           ReportService reportService,
+                           CheckoutService checkoutService) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.reportService = reportService;
+        this.checkoutService = checkoutService;
     }
 
     @GetMapping
     @Operation(summary = "Lista todas as ordens de venda realizadas")
-    public ResponseEntity<List<Order>> getAllOrders() {
-        return ResponseEntity.ok(orderRepository.findAllOrdersWithUsers());
+    public ResponseEntity<List<OrderResponseDto>> getAllOrders() {
+        return ResponseEntity.ok(checkoutService.getAllOrdersAdmin());
+    }
+
+    @PatchMapping("/{orderId}")
+    @Transactional
+    @Operation(summary = "Atualiza status e/ou código de rastreio de um pedido")
+    public ResponseEntity<OrderResponseDto> updateOrderStatus(
+            @PathVariable UUID orderId,
+            @RequestBody Map<String, String> payload) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
+
+        if (payload.containsKey("status") && payload.get("status") != null) {
+            order.setStatus(payload.get("status").trim().toUpperCase());
+        }
+        if (payload.containsKey("trackingCode")) {
+            order.setTrackingCode(payload.get("trackingCode"));
+        }
+
+        order = orderRepository.save(order);
+        return ResponseEntity.ok(checkoutService.toOrderResponseDto(order));
     }
 
     @GetMapping("/report")

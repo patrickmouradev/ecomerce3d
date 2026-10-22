@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, User, Mail, Lock, ArrowLeft } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { user, loginLocal, registerLocal } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectPath = searchParams.get('redirect') || '/';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,12 +16,12 @@ export const Login: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Redireciona para home se já estiver logado
+  // Redireciona para destino (ou home) se já estiver logado
   useEffect(() => {
     if (user) {
-      navigate('/');
+      navigate(redirectPath);
     }
-  }, [user, navigate]);
+  }, [user, navigate, redirectPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +35,7 @@ export const Login: React.FC = () => {
         if (!email.trim() || !password.trim()) return;
         await loginLocal(email.trim(), password.trim());
       }
-      navigate('/');
+      navigate(redirectPath);
     } catch (error: any) {
       setLoginError(error.response?.data?.message || 'Falha na autenticação');
     } finally {

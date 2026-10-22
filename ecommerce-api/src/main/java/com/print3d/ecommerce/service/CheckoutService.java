@@ -1,0 +1,405 @@
+package com.print3d.ecommerce.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.print3d.ecommerce.dto.AddressDto;
+import com.print3d.ecommerce.dto.CheckoutProcessRequestDto;
+import com.print3d.ecommerce.dto.CheckoutShippingRequestDto;
+import com.print3d.ecommerce.dto.OrderResponseDto;
+import com.print3d.ecommerce.external.correios.CorreiosRequestDto;
+import com.print3d.ecommerce.external.correios.CorreiosResponseDto;
+import com.print3d.ecommerce.external.correios.CorreiosService;
+import com.print3d.ecommerce.external.mercadopago.MercadoPagoPaymentRequestDto;
+import com.print3d.ecommerce.external.mercadopago.MercadoPagoPaymentResponseDto;
+import com.print3d.ecommerce.external.mercadopago.MercadoPagoService;
+import com.print3d.ecommerce.model.*;
+import com.print3d.ecommerce.repository.OrderRepository;
+import com.print3d.ecommerce.repository.ProductRepository;
+import com.print3d.ecommerce.repository.SystemParameterRepository;
+import com.print3d.ecommerce.repository.UserRepository;
+import com.print3d.ecommerce.util.DatePatterns;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class CheckoutService {
+
+    private static final Logger log = LoggerFactory.getLogger(CheckoutService.class);
+    private static final String DEFAULT_CEP_ORIGEM = "11700000"; // Praia Grande / SP (3DPrintPNG)
+
+    private final ProductRepository productRepository;
+    private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
+    private final SystemParameterRepository systemParameterRepository;
+    private final CorreiosService correiosService;
+    private final MercadoPagoService mercadoPagoService;
+    private final ObjectMapper objectMapper;
+
+    public CheckoutService(ProductRepository productRepository,
+                           OrderRepository orderRepository,
+                           UserRepository userRepository,
+                           SystemParameterRepository systemParameterRepository,
+                           CorreiosService correiosService,
+                           MercadoPagoService mercadoPagoService,
+                           ObjectMapper objectMapper) {
+        this.productRepository = productRepository;
+        this.orderRepository = orderRepository;
+        this.userRepository = userRepository;
+        this.systemParameterRepository = systemParameterRepository;
+        this.correiosService = correiosService;
+        this.mercadoPagoService = mercadoPagoService;
+        this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Calcula o frete com base no CEP de destino e no peso real das peças 3D no banco de dados.
+     */
+    @Transactional(readOnly = true)
+    public CorreiosResponseDto calculateShipping(CheckoutShippingRequestDto request) {
+        String cleanCepDestino = request.getZipCode() != null ? request.getZipCode().replaceAll("\\D", "") : "";
+        if (cleanCepDestino.length() != 8) {
+            throw new IllegalArgumentException("Informe um CEP válido com 8 dígitos");
+        }
+
+        double totalWeightGrams = 0.0;
+        if (request.getItems() != null) {
+            for (CheckoutShippingRequestDto.CartItemInput item : request.getItems()) {
+                Product product = productRepository.findById(item.getProductId())
+                        .orElseThrow(() -> new RuntimeException("Produto não encontrado: " + item.getProductId()));
+                double productWeightG = calculateProductWeightGrams(product);
+                totalWeightGrams += productWeightG * Math.max(1, item.getQuantity());
+            }
+        }
+
+        // Peso mínimo de 300g (0.3 kg) para encomenda PAC/SEDEX
+        double pesoKg = Math.max(0.3, totalWeightGrams / 1000.0);
+        String cepOrigem = resolveCepOrigem();
+
+        return correiosService.calcularFrete(CorreiosRequestDto.builder()
+                .cepOrigem(cepOrigem)
+                .cepDestino(cleanCepDestino)
+                .pesoKg(pesoKg)
+                .build());
+    }
+
+    /**
+     * Processa o fechamento do pedido:
+     * 1. Salva/atualiza CPF, Telefone e Endereço no perfil do cliente (Opção A)
+     * 2. Recalcula subtotal dos produtos e frete no servidor (proteção contra adulteração no front-end)
+     * 3. Cria o pedido e envia o pagamento (PIX ou Cartão) ao Mercado Pago
+     */
+    @Transactional
+    public OrderResponseDto processCheckout(UUID userId, CheckoutProcessRequestDto request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("O carrinho está vazio");
+        }
+
+        String cleanCpf = request.getCpf() != null ? request.getCpf().replaceAll("\\D", "") : "";
+        if (cleanCpf.length() < 11) {
+            throw new IllegalArgumentException("CPF/CNPJ válido é obrigatório para emissão do pagamento");
+        }
+
+        AddressDto address = request.getAddress();
+        if (address == null || address.getZipCode() == null || address.getZipCode().replaceAll("\\D", "").length() != 8) {
+            throw new IllegalArgumentException("Endereço de entrega completo com CEP válido é obrigatório");
+        }
+
+        // 1. Atualiza os dados no perfil do cliente para próximas compras
+        if (request.getCustomerName() != null && !request.getCustomerName().trim().isEmpty()) {
+            user.setName(request.getCustomerName().trim());
+        }
+        user.setCpf(cleanCpf);
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
+            address.setPhone(request.getPhone().trim());
+        }
+
+        String addressJsonStr;
+        try {
+            addressJsonStr = objectMapper.writeValueAsString(address);
+            user.setAddressJson(addressJsonStr);
+            userRepository.save(user);
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao salvar endereço de entrega", e);
+        }
+
+        // 2. Calcula os itens e o valor real no servidor
+        BigDecimal subtotal = BigDecimal.ZERO;
+        List<OrderItem> orderItems = new ArrayList<>();
+        List<String> productNames = new ArrayList<>();
+
+        Order order = Order.builder()
+                .user(user)
+                .status("PENDENTE")
+                .shippingAddressJson(addressJsonStr)
+                .customerPhone(address.getPhone())
+                .paymentMethod(request.getPaymentMethodId())
+                .build();
+
+        for (CheckoutShippingRequestDto.CartItemInput cartItem : request.getItems()) {
+            Product product = productRepository.findById(cartItem.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Produto não encontrado: " + cartItem.getProductId()));
+            if (!product.isActive()) {
+                throw new RuntimeException("O produto '" + product.getName() + "' não está mais disponível");
+            }
+            int qty = Math.max(1, cartItem.getQuantity());
+            BigDecimal unitPrice = product.getSalePriceParticular();
+            subtotal = subtotal.add(unitPrice.multiply(BigDecimal.valueOf(qty)));
+
+            orderItems.add(OrderItem.builder()
+                    .order(order)
+                    .product(product)
+                    .quantity(qty)
+                    .price(unitPrice)
+                    .build());
+            productNames.add(qty + "x " + product.getName());
+        }
+
+        // 3. Calcula o frete no servidor
+        CorreiosResponseDto shippingResponse = calculateShipping(CheckoutShippingRequestDto.builder()
+                .zipCode(address.getZipCode())
+                .items(request.getItems())
+                .build());
+
+        BigDecimal shippingCost = shippingResponse.getValorFrete().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalAmount = subtotal.add(shippingCost).setScale(2, RoundingMode.HALF_UP);
+
+        order.setShippingCost(shippingCost);
+        order.setTotalAmount(totalAmount);
+        order.setItems(orderItems);
+
+        // Salva inicialmente para obter o UUID do pedido (external_reference)
+        order = orderRepository.save(order);
+
+        // 4. Separa Nome e Sobrenome para o Mercado Pago
+        String fullName = user.getName() != null ? user.getName().trim() : "Cliente 3DPrintPNG";
+        String firstName = fullName;
+        String lastName = "Cliente";
+        int spaceIdx = fullName.indexOf(' ');
+        if (spaceIdx > 0) {
+            firstName = fullName.substring(0, spaceIdx).trim();
+            lastName = fullName.substring(spaceIdx + 1).trim();
+        }
+
+        String identificationNumber = request.getPayerIdentificationNumber() != null
+                && !request.getPayerIdentificationNumber().trim().isEmpty()
+                ? request.getPayerIdentificationNumber().replaceAll("\\D", "")
+                : cleanCpf;
+
+        String identificationType = request.getPayerIdentificationType() != null
+                && !request.getPayerIdentificationType().trim().isEmpty()
+                ? request.getPayerIdentificationType()
+                : (identificationNumber.length() > 11 ? "CNPJ" : "CPF");
+
+        String payerEmail = request.getPayerEmail() != null && !request.getPayerEmail().trim().isEmpty()
+                ? request.getPayerEmail().trim()
+                : user.getEmail();
+
+        MercadoPagoPaymentRequestDto mpRequest = MercadoPagoPaymentRequestDto.builder()
+                .externalReference(order.getId().toString())
+                .description("3DPrintPNG - " + String.join(", ", productNames))
+                .transactionAmount(totalAmount)
+                .paymentMethodId(request.getPaymentMethodId() != null ? request.getPaymentMethodId() : "pix")
+                .token(request.getToken())
+                .issuerId(request.getIssuerId())
+                .installments(request.getInstallments() != null ? request.getInstallments() : 1)
+                .email(payerEmail)
+                .firstName(firstName)
+                .lastName(lastName)
+                .identificationType(identificationType)
+                .identificationNumber(identificationNumber)
+                .zipCode(address.getZipCode())
+                .streetName(address.getStreetName())
+                .streetNumber(address.getStreetNumber())
+                .neighborhood(address.getNeighborhood())
+                .city(address.getCity())
+                .federalUnit(address.getFederalUnit())
+                .build();
+
+        MercadoPagoPaymentResponseDto mpResponse = mercadoPagoService.criarPagamento(mpRequest);
+
+        if ("rejected".equalsIgnoreCase(mpResponse.getStatus())) {
+            order.setStatus("CANCELADO");
+            order.setMercadoPagoPaymentId(mpResponse.getPaymentId());
+            order.setPaymentStatusDetail(mpResponse.getStatusDetail());
+            orderRepository.save(order);
+            throw new RuntimeException("Pagamento recusado pela operadora (" + mpResponse.getStatusDetail() + "). Verifique os dados do cartão ou escolha PIX.");
+        }
+
+        order.setMercadoPagoPaymentId(mpResponse.getPaymentId());
+        order.setPaymentStatusDetail(mpResponse.getStatusDetail());
+        order.setPixQrCode(mpResponse.getQrCode());
+        order.setPixQrCodeBase64(mpResponse.getQrCodeBase64());
+
+        if ("approved".equalsIgnoreCase(mpResponse.getStatus())) {
+            order.setStatus("PAGO");
+        } else {
+            order.setStatus("PENDENTE");
+        }
+
+        order = orderRepository.save(order);
+        return toOrderResponseDto(order);
+    }
+
+    /**
+     * Consulta e sincroniza o status do pedido no Mercado Pago (usado pelo Polling a cada 5s da tela do PIX).
+     */
+    @Transactional
+    public OrderResponseDto checkAndSyncOrderStatus(UUID userId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
+
+        if (!order.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Acesso negado a este pedido");
+        }
+
+        if ("PENDENTE".equalsIgnoreCase(order.getStatus())
+                && order.getMercadoPagoPaymentId() != null
+                && !order.getMercadoPagoPaymentId().startsWith("SIM-")) {
+            try {
+                MercadoPagoPaymentResponseDto mpStatus = mercadoPagoService.consultarPagamento(order.getMercadoPagoPaymentId());
+                updateOrderFromMercadoPagoStatus(order, mpStatus);
+            } catch (Exception e) {
+                log.warn("Falha ao sincronizar status do pedido {} no Mercado Pago: {}", orderId, e.getMessage());
+            }
+        }
+
+        return toOrderResponseDto(order);
+    }
+
+    /**
+     * Permite aprovar um pagamento PIX em modo simulado (quando as chaves ainda são TEST-XXXX).
+     */
+    @Transactional
+    public OrderResponseDto simulateApproveOrder(UUID userId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
+
+        if (!order.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Acesso negado a este pedido");
+        }
+
+        order.setStatus("PAGO");
+        order.setPaymentStatusDetail("accredited_simulated");
+        order = orderRepository.save(order);
+        return toOrderResponseDto(order);
+    }
+
+    /**
+     * Processa notificação assíncrona do Webhook do Mercado Pago.
+     */
+    @Transactional
+    public void processWebhookNotification(String paymentId) {
+        if (paymentId == null || paymentId.trim().isEmpty()) {
+            return;
+        }
+        log.info("Recebida notificação de Webhook do Mercado Pago para paymentId={}", paymentId);
+
+        orderRepository.findByMercadoPagoPaymentId(paymentId.trim()).ifPresent(order -> {
+            MercadoPagoPaymentResponseDto mpStatus = mercadoPagoService.consultarPagamento(paymentId.trim());
+            updateOrderFromMercadoPagoStatus(order, mpStatus);
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderResponseDto> getMyOrders(UUID userId) {
+        return orderRepository.findByUserIdWithUser(userId)
+                .stream()
+                .map(this::toOrderResponseDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderResponseDto> getAllOrdersAdmin() {
+        return orderRepository.findAllOrdersWithUsers()
+                .stream()
+                .map(this::toOrderResponseDto)
+                .toList();
+    }
+
+    private void updateOrderFromMercadoPagoStatus(Order order, MercadoPagoPaymentResponseDto mpStatus) {
+        if (mpStatus == null || mpStatus.getStatus() == null) return;
+
+        order.setPaymentStatusDetail(mpStatus.getStatusDetail());
+        if ("approved".equalsIgnoreCase(mpStatus.getStatus())) {
+            order.setStatus("PAGO");
+            log.info("Pedido {} atualizado para PAGO via confirmação do Mercado Pago!", order.getId());
+        } else if ("cancelled".equalsIgnoreCase(mpStatus.getStatus()) || "rejected".equalsIgnoreCase(mpStatus.getStatus())) {
+            order.setStatus("CANCELADO");
+            log.info("Pedido {} atualizado para CANCELADO via Mercado Pago.", order.getId());
+        }
+        orderRepository.save(order);
+    }
+
+    public OrderResponseDto toOrderResponseDto(Order order) {
+        AddressDto shippingAddress = null;
+        if (order.getShippingAddressJson() != null && !order.getShippingAddressJson().isEmpty()) {
+            try {
+                shippingAddress = objectMapper.readValue(order.getShippingAddressJson(), AddressDto.class);
+            } catch (Exception ignored) {
+            }
+        }
+
+        List<OrderResponseDto.OrderItemDto> itemDtos = order.getItems() != null
+                ? order.getItems().stream()
+                .map(i -> OrderResponseDto.OrderItemDto.builder()
+                        .id(i.getId() != null ? i.getId().toString() : null)
+                        .productId(i.getProduct() != null && i.getProduct().getId() != null ? i.getProduct().getId().toString() : null)
+                        .productName(i.getProduct() != null ? i.getProduct().getName() : "Peça 3D")
+                        .quantity(i.getQuantity())
+                        .price(i.getPrice())
+                        .build())
+                .toList()
+                : List.of();
+
+        boolean simulated = order.getMercadoPagoPaymentId() != null && order.getMercadoPagoPaymentId().startsWith("SIM-");
+
+        return OrderResponseDto.builder()
+                .id(order.getId().toString())
+                .clientName(order.getUser() != null ? order.getUser().getName() : "Cliente")
+                .clientEmail(order.getUser() != null ? order.getUser().getEmail() : null)
+                .customerPhone(order.getCustomerPhone())
+                .status(order.getStatus())
+                .paymentMethod(order.getPaymentMethod())
+                .paymentStatusDetail(order.getPaymentStatusDetail())
+                .shippingCost(order.getShippingCost())
+                .totalAmount(order.getTotalAmount())
+                .mercadoPagoPaymentId(order.getMercadoPagoPaymentId())
+                .trackingCode(order.getTrackingCode())
+                .pixQrCode(order.getPixQrCode())
+                .pixQrCodeBase64(order.getPixQrCodeBase64())
+                .shippingAddress(shippingAddress)
+                .createdAt(order.getCreatedAt() != null ? order.getCreatedAt().format(DatePatterns.DATE_FORMATTER) : "")
+                .simulatedPayment(simulated)
+                .items(itemDtos)
+                .build();
+    }
+
+    private double calculateProductWeightGrams(Product product) {
+        if (product.getFilaments() == null || product.getFilaments().isEmpty()) {
+            return 150.0; // Peso padrão 150g caso não tenha filamento associado
+        }
+        return product.getFilaments().stream()
+                .map(ProductFilament::getWeightG)
+                .filter(w -> w != null)
+                .mapToDouble(BigDecimal::doubleValue)
+                .sum();
+    }
+
+    private String resolveCepOrigem() {
+        return systemParameterRepository.findByDescription("CEP Origem")
+                .map(SystemParameter::getParamValue)
+                .map(v -> v.replaceAll("\\D", ""))
+                .filter(v -> v.length() == 8)
+                .orElse(DEFAULT_CEP_ORIGEM);
+    }
+}

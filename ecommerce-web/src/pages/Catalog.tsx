@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
   Search,
@@ -1123,6 +1124,7 @@ const LightboxModal: React.FC<{
    PÁGINA PRINCIPAL: CATÁLOGO DE PRODUTOS
    ========================================================================= */
 export const Catalog: React.FC = () => {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1298,6 +1300,14 @@ export const Catalog: React.FC = () => {
           </div>
           <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{toastMessage}</span>
           <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/checkout')}
+            style={{ padding: '0.35rem 0.75rem', fontSize: '0.78rem', marginLeft: '0.4rem' }}
+          >
+            Finalizar Compra
+          </button>
+          <button
             onClick={() => setToastMessage(null)}
             style={{
               background: 'none',
@@ -1445,7 +1455,10 @@ export const Catalog: React.FC = () => {
           </h2>
 
           {cartCount > 0 && (
-            <span
+            <button
+              type="button"
+              onClick={() => navigate('/checkout')}
+              title="Ir para o Checkout"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1456,12 +1469,13 @@ export const Catalog: React.FC = () => {
                 padding: '0.3rem 0.75rem',
                 borderRadius: '20px',
                 fontSize: '0.8rem',
-                fontWeight: 700
+                fontWeight: 700,
+                cursor: 'pointer'
               }}
             >
               <ShoppingCart size={13} />
-              {cartCount} no carrinho
-            </span>
+              {cartCount} no carrinho • Finalizar
+            </button>
           )}
         </div>
 

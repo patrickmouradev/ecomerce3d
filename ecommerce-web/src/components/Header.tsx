@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, LogOut, Shield, ChevronDown, Check, Edit2, LogIn, Box, Layers, Sliders, DollarSign, Paperclip } from 'lucide-react';
+import { User, LogOut, Shield, ChevronDown, Check, Edit2, LogIn, Box, Layers, Sliders, DollarSign, Paperclip, ShoppingCart, Package } from 'lucide-react';
 import logoImg from '../assets/logo-loja.jpg';
 
 export const Header: React.FC = () => {
@@ -11,10 +11,27 @@ export const Header: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || '');
   const [showProfileSwitcher, setShowProfileSwitcher] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const adminDropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Atualiza contador de itens do carrinho em tempo real
+  useEffect(() => {
+    const updateBadge = () => {
+      try {
+        const items = JSON.parse(localStorage.getItem('3dprintpng_cart') || '[]');
+        const total = items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0);
+        setCartCount(total);
+      } catch {
+        setCartCount(0);
+      }
+    };
+    updateBadge();
+    window.addEventListener('cart_updated', updateBadge);
+    return () => window.removeEventListener('cart_updated', updateBadge);
+  }, []);
 
   // Fecha os dropdowns ao clicar fora
   useEffect(() => {
@@ -96,6 +113,11 @@ export const Header: React.FC = () => {
         <Link to="/" style={{ fontSize: '0.95rem', fontWeight: 500, transition: 'var(--transition-fast)' }} className="nav-link">
           Catálogo
         </Link>
+        {user && (
+          <Link to="/my-orders" style={{ fontSize: '0.95rem', fontWeight: 500, transition: 'var(--transition-fast)' }} className="nav-link">
+            Meus Pedidos
+          </Link>
+        )}
         
         {isAdminOrFinancial && (
           <>
@@ -256,8 +278,45 @@ export const Header: React.FC = () => {
         )}
       </nav>
 
-      {/* Menu do Usuário */}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
+      {/* Carrinho e Menu do Usuário */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        <Link
+          to="/checkout"
+          title="Ver Carrinho e Finalizar Compra"
+          style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            background: cartCount > 0 ? 'rgba(0, 240, 255, 0.08)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${cartCount > 0 ? 'var(--primary)' : 'var(--border-color)'}`,
+            padding: '0.5rem 0.9rem',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-primary)',
+            textDecoration: 'none',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            transition: 'var(--transition-fast)'
+          }}
+        >
+          <ShoppingCart size={16} style={{ color: 'var(--primary)' }} />
+          <span>Carrinho</span>
+          {cartCount > 0 && (
+            <span
+              style={{
+                background: 'var(--primary)',
+                color: '#000',
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                padding: '0.05rem 0.45rem',
+                borderRadius: '12px'
+              }}
+            >
+              {cartCount}
+            </span>
+          )}
+        </Link>
+
         {user ? (
           <div ref={dropdownRef} style={{ position: 'relative' }}>
             {/* Nome do Usuário que abre o menu */}
@@ -406,6 +465,27 @@ export const Header: React.FC = () => {
                     )}
                   </div>
                 )}
+
+                {/* Atalho para Meus Pedidos */}
+                <Link
+                  to="/my-orders"
+                  onClick={() => setDropdownOpen(false)}
+                  className="btn btn-secondary"
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '0.5rem',
+                    textDecoration: 'none'
+                  }}
+                >
+                  <Package size={14} style={{ color: 'var(--primary)' }} />
+                  Meus Pedidos
+                </Link>
 
                 {/* Opção Logout */}
                 <button 
