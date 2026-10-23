@@ -663,7 +663,7 @@ export const Products: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '2rem', maxWidth: '1380px', margin: '0 auto' }}>
       
       {/* Topo da Tela */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -714,12 +714,15 @@ export const Products: React.FC = () => {
                 <th onClick={() => handleSort('salePriceShoppe')}>
                   Venda Shoppe <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Ações</th>
+                <th style={{ textAlign: 'center' }}>Anexo</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
+                <th style={{ textAlign: 'center' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((prod) => (
+              {products.map((prod) => {
+                const hasAttachment = prod.imagesVideosPaths && prod.imagesVideosPaths.length > 0;
+                return (
                 <tr key={prod.id} style={{ opacity: prod.active ? 1 : 0.5 }}>
                   <td style={{ fontWeight: 600 }}>{prod.name}</td>
                   <td>
@@ -768,7 +771,26 @@ export const Products: React.FC = () => {
                   <td style={{ color: 'var(--success)', fontWeight: 700 }}>
                     {prod.salePriceShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
                   </td>
-                  <td>
+                  <td style={{ textAlign: 'center' }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        background: hasAttachment ? 'rgba(0, 240, 255, 0.1)' : 'rgba(255, 59, 48, 0.1)',
+                        color: hasAttachment ? 'var(--primary)' : 'var(--danger)',
+                        border: `1px solid ${hasAttachment ? 'rgba(0, 240, 255, 0.25)' : 'rgba(255, 59, 48, 0.2)'}`
+                      }}
+                    >
+                      {hasAttachment ? 'Sim' : 'Não'}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
                     <span style={{
                       padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600,
                       background: prod.active ? 'var(--success-glow)' : 'rgba(255,59,48,0.1)',
@@ -778,8 +800,8 @@ export const Products: React.FC = () => {
                       {prod.active ? 'Ativo' : 'Inativo'}
                     </span>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '0.5rem', float: 'right' }}>
+                  <td style={{ textAlign: 'center' }}>
+                    <div style={{ display: 'inline-flex', gap: '0.5rem', justifyContent: 'center' }}>
                       <button 
                         onClick={() => openDuplicateModal(prod)}
                         className="btn btn-secondary" 
@@ -805,7 +827,8 @@ export const Products: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -818,7 +841,7 @@ export const Products: React.FC = () => {
       {/* Modal de Cadastro / Edição */}
       {modalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '650px' }}>
+          <div className="modal-content" style={{ maxWidth: '720px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.2rem', color: '#fff' }}>
                 {isEditing ? 'Editar Produto' : 'Cadastrar Novo Modelo'}
