@@ -27,6 +27,10 @@ public class BasicProductionCost {
     @Column(nullable = false)
     private Double value;
 
+    @Column(name = "is_percentage", nullable = false)
+    @Builder.Default
+    private boolean isPercentage = false;
+
     @Column(name = "created_by")
     private String createdBy;
 

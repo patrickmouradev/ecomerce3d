@@ -15,6 +15,7 @@ public class BasicProductionCostDto {
     private UUID id;
     private String description;
     private Double value;
+    private Boolean isPercentage;
     private String formattedValue;
     private String createdBy;
     private String createdAt;

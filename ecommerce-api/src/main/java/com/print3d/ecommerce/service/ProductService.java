@@ -86,6 +86,7 @@ public class ProductService {
                 .profitMargin(dto.getProfitMargin())
                 .salePriceParticular(dto.getSalePriceParticular())
                 .salePriceShoppe(dto.getSalePriceShoppe())
+                .salePriceMercadoLivre(dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO)
                 .active(dto.getActive() != null ? dto.getActive() : true)
                 .imagesVideosPaths(dto.getImagesVideosPaths() != null ? dto.getImagesVideosPaths() : new ArrayList<>())
                 .build();
@@ -139,6 +140,7 @@ public class ProductService {
         product.setProfitMargin(dto.getProfitMargin());
         product.setSalePriceParticular(dto.getSalePriceParticular());
         product.setSalePriceShoppe(dto.getSalePriceShoppe());
+        product.setSalePriceMercadoLivre(dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO);
         if (dto.getActive() != null) {
             product.setActive(dto.getActive());
         }
@@ -335,17 +337,21 @@ public class ProductService {
                 .suggestedPrice(pricing.getSuggestedPrice())
                 .suggestedPriceShoppe(pricing.getSuggestedPriceShoppe())
                 .suggestedPriceParticular(pricing.getSuggestedPriceParticular())
+                .suggestedPriceMercadoLivre(pricing.getSuggestedPriceMercadoLivre())
                 .netProfit(pricing.getNetProfit())
                 .netProfitShoppe(pricing.getNetProfitShoppe())
+                .netProfitMercadoLivre(pricing.getNetProfitMercadoLivre())
                 .energyCostTotal(pricing.getEnergyCostTotal())
                 .printerWearTotal(pricing.getPrinterWearTotal())
                 .packagingCost(pricing.getPackagingCost())
                 .accessoryCostTotal(pricing.getAccessoryCostTotal())
                 .shopeeCostsTotal(pricing.getShopeeCostsTotal())
+                .mercadoLivreCostsTotal(pricing.getMercadoLivreCostsTotal())
                 .productionCostWithoutShoppe(pricing.getProductionCostWithoutShoppe())
                 .profitMargin(product.getProfitMargin())
                 .salePriceParticular(product.getSalePriceParticular())
                 .salePriceShoppe(product.getSalePriceShoppe())
+                .salePriceMercadoLivre(product.getSalePriceMercadoLivre() != null ? product.getSalePriceMercadoLivre() : BigDecimal.ZERO)
                 .active(product.isActive())
                 .imagesVideosPaths(product.getImagesVideosPaths())
                 .bannerImagesPaths(bannerPaths)

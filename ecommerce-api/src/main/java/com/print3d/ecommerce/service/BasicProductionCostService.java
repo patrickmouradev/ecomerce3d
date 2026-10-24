@@ -59,21 +59,25 @@ public class BasicProductionCostService {
 
     @Transactional
     public BasicProductionCostDto create(BasicProductionCostDto dto) {
-        basicProductionCostRepository.findByDescription(dto.getDescription().trim())
-                .ifPresent(c -> {
-                    if (c.isActive()) {
-                        throw new RuntimeException("Já existe um custo com esta descrição");
-                    } else {
-                        c.setActive(true);
-                        c.setValue(dto.getValue());
-                        c.setUpdatedBy(getCurrentAuditorName());
-                        basicProductionCostRepository.save(c);
-                    }
-                });
+        boolean isPct = Boolean.TRUE.equals(dto.getIsPercentage());
+        var existingOpt = basicProductionCostRepository.findByDescription(dto.getDescription().trim());
+        if (existingOpt.isPresent()) {
+            BasicProductionCost existing = existingOpt.get();
+            if (existing.isActive()) {
+                throw new RuntimeException("Já existe um custo com esta descrição");
+            } else {
+                existing.setActive(true);
+                existing.setValue(dto.getValue());
+                existing.setPercentage(isPct);
+                existing.setUpdatedBy(getCurrentAuditorName());
+                return convertToDto(basicProductionCostRepository.save(existing));
+            }
+        }
 
         BasicProductionCost cost = BasicProductionCost.builder()
                 .description(dto.getDescription().trim())
                 .value(dto.getValue())
+                .isPercentage(isPct)
                 .createdBy(getCurrentAuditorName())
                 .updatedBy(getCurrentAuditorName())
                 .active(true)
@@ -89,6 +93,9 @@ public class BasicProductionCostService {
                 .orElseThrow(() -> new RuntimeException("Custo de produção básico não encontrado"));
 
         cost.setValue(dto.getValue());
+        if (dto.getIsPercentage() != null) {
+            cost.setPercentage(dto.getIsPercentage());
+        }
         cost.setUpdatedBy(getCurrentAuditorName());
         if (dto.getActive() != null) {
             cost.setActive(dto.getActive());
@@ -126,13 +133,18 @@ public class BasicProductionCostService {
     private BasicProductionCostDto convertToDto(BasicProductionCost cost) {
         String formattedValue = null;
         if (cost.getValue() != null) {
-            formattedValue = CalculationUtils.formatCurrency(new BigDecimal(cost.getValue().toString()));
+            if (cost.isPercentage()) {
+                formattedValue = String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.2f%%", cost.getValue());
+            } else {
+                formattedValue = CalculationUtils.formatCurrency(new BigDecimal(cost.getValue().toString()));
+            }
         }
 
         return BasicProductionCostDto.builder()
                 .id(cost.getId())
                 .description(cost.getDescription())
                 .value(cost.getValue())
+                .isPercentage(cost.isPercentage())
                 .formattedValue(formattedValue)
                 .createdBy(cost.getCreatedBy())
                 .updatedBy(cost.getUpdatedBy())

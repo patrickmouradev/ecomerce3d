@@ -16,13 +16,16 @@ public class PricingResult {
     private BigDecimal suggestedPrice; // Mantido para compatibilidade (Shoppe)
     private BigDecimal suggestedPriceShoppe;
     private BigDecimal suggestedPriceParticular;
+    private BigDecimal suggestedPriceMercadoLivre;
     private BigDecimal netProfit; // Lucro Sem Custos Shoppe (Particular)
     private BigDecimal netProfitShoppe; // Lucro Com Custos Shoppe
+    private BigDecimal netProfitMercadoLivre; // Lucro Com Custos Mercado Livre
     
     private BigDecimal energyCostTotal;
     private BigDecimal printerWearTotal;
     private BigDecimal packagingCost;
     private BigDecimal accessoryCostTotal;
     private BigDecimal shopeeCostsTotal;
+    private BigDecimal mercadoLivreCostsTotal;
     private BigDecimal productionCostWithoutShoppe;
 }

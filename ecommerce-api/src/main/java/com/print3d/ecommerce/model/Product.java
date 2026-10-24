@@ -49,6 +49,10 @@ public class Product {
     @Column(name = "sale_price_shoppe", nullable = false, precision = 10, scale = 2)
     private BigDecimal salePriceShoppe;
 
+    @Column(name = "sale_price_mercado_livre", precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal salePriceMercadoLivre = BigDecimal.ZERO;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;

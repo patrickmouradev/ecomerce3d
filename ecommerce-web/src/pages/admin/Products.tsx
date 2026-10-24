@@ -29,12 +29,15 @@ interface Product {
   suggestedPrice: number;
   suggestedPriceShoppe: number;
   suggestedPriceParticular: number;
+  suggestedPriceMercadoLivre?: number;
   productionCost: number;
   netProfit: number;
   netProfitShoppe: number;
+  netProfitMercadoLivre?: number;
   profitMargin: number;
   salePriceParticular: number;
   salePriceShoppe: number;
+  salePriceMercadoLivre?: number;
   active: boolean;
   imagesVideosPaths: string[];
   bannerImagesPaths?: string[];
@@ -42,6 +45,7 @@ interface Product {
   printerWearTotal: number;
   packagingCost: number;
   shopeeCostsTotal: number;
+  mercadoLivreCostsTotal?: number;
   productionCostWithoutShoppe: number;
 }
 
@@ -98,6 +102,7 @@ export const Products: React.FC = () => {
   const [profitMargin, setProfitMargin] = useState('');
   const [salePriceParticular, setSalePriceParticular] = useState('');
   const [salePriceShoppe, setSalePriceShoppe] = useState('');
+  const [salePriceMercadoLivre, setSalePriceMercadoLivre] = useState('');
   const [active, setActive] = useState(true);
   const [imagesVideosPaths, setImagesVideosPaths] = useState<string[]>([]);
   const [bannerImagesPaths, setBannerImagesPaths] = useState<string[]>([]);
@@ -105,14 +110,17 @@ export const Products: React.FC = () => {
   // Calculadora
   const [suggestedPriceShoppe, setSuggestedPriceShoppe] = useState<number | null>(null);
   const [suggestedPriceParticular, setSuggestedPriceParticular] = useState<number | null>(null);
+  const [suggestedPriceMercadoLivre, setSuggestedPriceMercadoLivre] = useState<number | null>(null);
   const [, setProductionCost] = useState<number | null>(null);
   const [netProfit, setNetProfit] = useState<number | null>(null);
   const [netProfitShoppe, setNetProfitShoppe] = useState<number | null>(null);
+  const [netProfitMercadoLivre, setNetProfitMercadoLivre] = useState<number | null>(null);
   const [energyCostTotal, setEnergyCostTotal] = useState<number | null>(null);
   const [printerWearTotal, setPrinterWearTotal] = useState<number | null>(null);
   const [packagingCost, setPackagingCost] = useState<number | null>(null);
   const [accessoryCostTotal, setAccessoryCostTotal] = useState<number | null>(null);
   const [, setShopeeCostsTotal] = useState<number | null>(null);
+  const [, setMercadoLivreCostsTotal] = useState<number | null>(null);
   const [productionCostWithoutShoppe, setProductionCostWithoutShoppe] = useState<number | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   
@@ -135,14 +143,17 @@ export const Products: React.FC = () => {
     } else {
       setSuggestedPriceShoppe(null);
       setSuggestedPriceParticular(null);
+      setSuggestedPriceMercadoLivre(null);
       setProductionCost(null);
       setNetProfit(null);
       setNetProfitShoppe(null);
+      setNetProfitMercadoLivre(null);
       setEnergyCostTotal(null);
       setPrinterWearTotal(null);
       setPackagingCost(null);
       setAccessoryCostTotal(null);
       setShopeeCostsTotal(null);
+      setMercadoLivreCostsTotal(null);
       setProductionCostWithoutShoppe(null);
     }
   }, [JSON.stringify(productFilaments), JSON.stringify(productAccessories), printingHours, profitMargin]);
@@ -201,14 +212,17 @@ export const Products: React.FC = () => {
       });
       setSuggestedPriceShoppe(response.data.suggestedPriceShoppe);
       setSuggestedPriceParticular(response.data.suggestedPriceParticular);
+      setSuggestedPriceMercadoLivre(response.data.suggestedPriceMercadoLivre ?? 0);
       setProductionCost(response.data.productionCost);
       setNetProfit(response.data.netProfit);
       setNetProfitShoppe(response.data.netProfitShoppe);
+      setNetProfitMercadoLivre(response.data.netProfitMercadoLivre ?? 0);
       setEnergyCostTotal(response.data.energyCostTotal);
       setPrinterWearTotal(response.data.printerWearTotal);
       setPackagingCost(response.data.packagingCost);
       setAccessoryCostTotal(response.data.accessoryCostTotal);
       setShopeeCostsTotal(response.data.shopeeCostsTotal);
+      setMercadoLivreCostsTotal(response.data.mercadoLivreCostsTotal ?? 0);
       setProductionCostWithoutShoppe(response.data.productionCostWithoutShoppe);
     } catch (e) {
       console.error("Erro ao calcular precificação", e);
@@ -320,19 +334,23 @@ export const Products: React.FC = () => {
     setProfitMargin('');
     setSalePriceParticular('');
     setSalePriceShoppe('');
+    setSalePriceMercadoLivre('0');
     setActive(true);
     setImagesVideosPaths([]);
     setBannerImagesPaths([]);
     setSuggestedPriceShoppe(null);
     setSuggestedPriceParticular(null);
+    setSuggestedPriceMercadoLivre(0);
     setProductionCost(null);
     setNetProfit(null);
     setNetProfitShoppe(null);
+    setNetProfitMercadoLivre(0);
     setEnergyCostTotal(null);
     setPrinterWearTotal(null);
     setPackagingCost(null);
     setAccessoryCostTotal(null);
     setShopeeCostsTotal(null);
+    setMercadoLivreCostsTotal(0);
     setProductionCostWithoutShoppe(null);
     setFormError('');
     setModalOpen(true);
@@ -361,19 +379,23 @@ export const Products: React.FC = () => {
     setProfitMargin(prod.profitMargin.toString());
     setSalePriceParticular(prod.salePriceParticular.toString());
     setSalePriceShoppe(prod.salePriceShoppe.toString());
+    setSalePriceMercadoLivre((prod.salePriceMercadoLivre ?? 0).toString());
     setActive(prod.active);
     setImagesVideosPaths(prod.imagesVideosPaths || []);
     setBannerImagesPaths(prod.bannerImagesPaths && prod.bannerImagesPaths.length > 0 ? prod.bannerImagesPaths : (prod.imagesVideosPaths || []));
     setSuggestedPriceShoppe(prod.suggestedPriceShoppe);
     setSuggestedPriceParticular(prod.suggestedPriceParticular);
+    setSuggestedPriceMercadoLivre(prod.suggestedPriceMercadoLivre ?? 0);
     setProductionCost(prod.productionCost);
     setNetProfit(prod.netProfit);
     setNetProfitShoppe(prod.netProfitShoppe);
+    setNetProfitMercadoLivre(prod.netProfitMercadoLivre ?? 0);
     setEnergyCostTotal(prod.energyCostTotal);
     setPrinterWearTotal(prod.printerWearTotal);
     setPackagingCost(prod.packagingCost);
     setAccessoryCostTotal(prod.accessoryCostTotal || null);
     setShopeeCostsTotal(prod.shopeeCostsTotal);
+    setMercadoLivreCostsTotal(prod.mercadoLivreCostsTotal ?? 0);
     setProductionCostWithoutShoppe(prod.productionCostWithoutShoppe);
     setFormError('');
     setModalOpen(true);
@@ -402,19 +424,23 @@ export const Products: React.FC = () => {
     setProfitMargin(prod.profitMargin.toString());
     setSalePriceParticular(prod.salePriceParticular.toString());
     setSalePriceShoppe(prod.salePriceShoppe.toString());
+    setSalePriceMercadoLivre((prod.salePriceMercadoLivre ?? 0).toString());
     setActive(prod.active);
     setImagesVideosPaths(prod.imagesVideosPaths || []);
     setBannerImagesPaths(prod.bannerImagesPaths && prod.bannerImagesPaths.length > 0 ? prod.bannerImagesPaths : (prod.imagesVideosPaths || []));
     setSuggestedPriceShoppe(prod.suggestedPriceShoppe);
     setSuggestedPriceParticular(prod.suggestedPriceParticular);
+    setSuggestedPriceMercadoLivre(prod.suggestedPriceMercadoLivre ?? 0);
     setProductionCost(prod.productionCost);
     setNetProfit(prod.netProfit);
     setNetProfitShoppe(prod.netProfitShoppe);
+    setNetProfitMercadoLivre(prod.netProfitMercadoLivre ?? 0);
     setEnergyCostTotal(prod.energyCostTotal);
     setPrinterWearTotal(prod.printerWearTotal);
     setPackagingCost(prod.packagingCost);
     setAccessoryCostTotal(prod.accessoryCostTotal || null);
     setShopeeCostsTotal(prod.shopeeCostsTotal);
+    setMercadoLivreCostsTotal(prod.mercadoLivreCostsTotal ?? 0);
     setProductionCostWithoutShoppe(prod.productionCostWithoutShoppe);
     setFormError('');
     setModalOpen(true);
@@ -604,6 +630,12 @@ export const Products: React.FC = () => {
       return;
     }
 
+    const priceMercadoLivre = salePriceMercadoLivre.trim() === '' ? 0 : parseFloat(salePriceMercadoLivre);
+    if (isNaN(priceMercadoLivre) || priceMercadoLivre < 0) {
+      setFormError('O preço de venda Mercado Livre não pode ser negativo');
+      return;
+    }
+
     const margin = parseFloat(profitMargin);
     if (isNaN(margin) || margin < 0) {
       setFormError('A margem de lucro deve ser no mínimo zero');
@@ -625,6 +657,7 @@ export const Products: React.FC = () => {
       profitMargin: margin,
       salePriceParticular: priceParticular,
       salePriceShoppe: priceShoppe,
+      salePriceMercadoLivre: priceMercadoLivre,
       active: active,
       imagesVideosPaths: imagesVideosPaths,
       bannerImagesPaths: bannerImagesPaths
@@ -714,6 +747,9 @@ export const Products: React.FC = () => {
                 <th onClick={() => handleSort('salePriceShoppe')}>
                   Venda Shoppe <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
+                <th onClick={() => handleSort('salePriceMercadoLivre')}>
+                  Venda Mercado Livre <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
+                </th>
                 <th style={{ textAlign: 'center' }}>Anexo</th>
                 <th style={{ textAlign: 'center' }}>Status</th>
                 <th style={{ textAlign: 'center' }}>Ações</th>
@@ -770,6 +806,9 @@ export const Products: React.FC = () => {
                   </td>
                   <td style={{ color: 'var(--success)', fontWeight: 700 }}>
                     {prod.salePriceShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
+                  </td>
+                  <td style={{ color: 'var(--success)', fontWeight: 700 }}>
+                    {(prod.salePriceMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <span
@@ -841,7 +880,7 @@ export const Products: React.FC = () => {
       {/* Modal de Cadastro / Edição */}
       {modalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '720px' }}>
+          <div className="modal-content" style={{ maxWidth: '960px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.2rem', color: '#fff' }}>
                 {isEditing ? 'Editar Produto' : 'Cadastrar Novo Modelo'}
@@ -1161,22 +1200,34 @@ export const Products: React.FC = () => {
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>Sugestão de Preço Mercado Livre:</span>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>
+                      {loadingSuggestion ? 'Calculando...' : (suggestedPriceMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
                     <span style={{ fontSize: '0.85rem', color: (netProfit && netProfit >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>Estimativa de Lucro Líquido Particular:</span>
                     <span style={{ fontSize: '0.9rem', color: (netProfit && netProfit >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
                       {loadingSuggestion ? 'Calculando...' : netProfit?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
                     <span style={{ fontSize: '0.85rem', color: (netProfitShoppe && netProfitShoppe >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>Estimativa de Lucro Líquido Shoppe:</span>
                     <span style={{ fontSize: '0.9rem', color: (netProfitShoppe && netProfitShoppe >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
                       {loadingSuggestion ? 'Calculando...' : netProfitShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.85rem', color: (netProfitMercadoLivre !== null && netProfitMercadoLivre >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>Estimativa de Lucro Líquido Mercado Livre:</span>
+                    <span style={{ fontSize: '0.9rem', color: (netProfitMercadoLivre !== null && netProfitMercadoLivre >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+                      {loadingSuggestion ? 'Calculando...' : (netProfitMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div className="form-group" style={{ flex: 1 }}>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
                   <label className="form-label">Preço Venda Particular (R$)</label>
                   <input 
                     type="number" 
@@ -1187,7 +1238,7 @@ export const Products: React.FC = () => {
                     required 
                   />
                 </div>
-                <div className="form-group" style={{ flex: 1 }}>
+                <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
                   <label className="form-label">Preço Venda Shoppe (R$)</label>
                   <input 
                     type="number" 
@@ -1198,8 +1249,20 @@ export const Products: React.FC = () => {
                     required 
                   />
                 </div>
+                <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
+                  <label className="form-label">Preço Venda Mercado Livre (R$)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    min="0"
+                    placeholder="0.00"
+                    value={salePriceMercadoLivre} 
+                    onChange={(e) => setSalePriceMercadoLivre(e.target.value)} 
+                    className="form-input" 
+                  />
+                </div>
                 
-                <div className="form-group" style={{ flex: 0.5, justifyContent: 'center', alignItems: 'flex-start', paddingTop: '1.5rem' }}>
+                <div className="form-group" style={{ flex: 0.4, minWidth: '90px', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '1.5rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none' }}>
                     <input 
                       type="checkbox" 

@@ -6,6 +6,7 @@ interface BasicProductionCost {
   id: string;
   description: string;
   value: number;
+  isPercentage?: boolean;
   formattedValue: string;
   createdBy: string;
   updatedBy: string;
@@ -34,6 +35,7 @@ export const BasicProductionCosts: React.FC = () => {
   // Form fields
   const [description, setDescription] = useState('');
   const [value, setValue] = useState('');
+  const [isPercentage, setIsPercentage] = useState(false);
   const [active, setActive] = useState(true);
   const [formError, setFormError] = useState('');
 
@@ -73,6 +75,7 @@ export const BasicProductionCosts: React.FC = () => {
     setIsEditing(false);
     setDescription('');
     setValue('');
+    setIsPercentage(false);
     setActive(true);
     setFormError('');
     setModalOpen(true);
@@ -83,6 +86,7 @@ export const BasicProductionCosts: React.FC = () => {
     setSelectedId(cost.id);
     setDescription(cost.description);
     setValue(cost.value.toString());
+    setIsPercentage(!!cost.isPercentage);
     setActive(cost.active);
     setFormError('');
     setModalOpen(true);
@@ -99,7 +103,8 @@ export const BasicProductionCosts: React.FC = () => {
 
     const payload: any = {
       description: description.trim(),
-      value: parseFloat(value.replace(',', '.'))
+      value: parseFloat(value.replace(',', '.')),
+      isPercentage: isPercentage
     };
 
     if (isEditing) {
@@ -274,13 +279,57 @@ export const BasicProductionCosts: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Valor (ex: 1500.50)</label>
+                <label className="form-label">Tipo de Valor</label>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsPercentage(false)}
+                    style={{
+                      flex: 1,
+                      padding: '0.65rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: !isPercentage ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                      background: !isPercentage ? 'rgba(0, 240, 255, 0.12)' : 'var(--bg-surface-1)',
+                      color: !isPercentage ? 'var(--primary)' : 'var(--text-secondary)',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      transition: 'var(--transition-fast)'
+                    }}
+                  >
+                    Valor em Reais (R$)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPercentage(true)}
+                    style={{
+                      flex: 1,
+                      padding: '0.65rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: isPercentage ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                      background: isPercentage ? 'rgba(0, 240, 255, 0.12)' : 'var(--bg-surface-1)',
+                      color: isPercentage ? 'var(--primary)' : 'var(--text-secondary)',
+                      fontWeight: 600,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      transition: 'var(--transition-fast)'
+                    }}
+                  >
+                    Porcentagem (%)
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  {isPercentage ? 'Porcentagem (%) (ex: 16.5)' : 'Valor em R$ (ex: 1500.50)'}
+                </label>
                 <input 
                   type="text" 
                   value={value} 
                   onChange={(e) => setValue(e.target.value)} 
                   className="form-input" 
-                  placeholder="Ex: 1500.50"
+                  placeholder={isPercentage ? 'Ex: 16.5' : 'Ex: 1500.50'}
                   required 
                 />
               </div>

@@ -39,17 +39,20 @@ public class ProductDto {
     private BigDecimal suggestedPrice; // Calculado pelo sistema dinamicamente
     private BigDecimal suggestedPriceShoppe;
     private BigDecimal suggestedPriceParticular;
+    private BigDecimal suggestedPriceMercadoLivre;
 
     private BigDecimal productionCost; // Calculado pelo sistema dinamicamente
 
     private BigDecimal netProfit; // Calculado pelo sistema dinamicamente
     private BigDecimal netProfitShoppe; // Calculado pelo sistema dinamicamente
+    private BigDecimal netProfitMercadoLivre; // Calculado pelo sistema dinamicamente
 
     private BigDecimal energyCostTotal;
     private BigDecimal printerWearTotal;
     private BigDecimal packagingCost;
     private BigDecimal accessoryCostTotal;
     private BigDecimal shopeeCostsTotal;
+    private BigDecimal mercadoLivreCostsTotal;
     private BigDecimal productionCostWithoutShoppe;
 
     @NotNull(message = "Margem de lucro é obrigatória")
@@ -63,6 +66,9 @@ public class ProductDto {
     @NotNull(message = "Preço de venda Shoppe é obrigatório")
     @DecimalMin(value = "0.01", message = "O preço de venda Shoppe deve ser maior que zero")
     private BigDecimal salePriceShoppe;
+
+    @DecimalMin(value = "0.00", message = "O preço de venda Mercado Livre não pode ser negativo")
+    private BigDecimal salePriceMercadoLivre;
 
     private Boolean active;
 
