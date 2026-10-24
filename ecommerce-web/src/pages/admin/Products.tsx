@@ -111,7 +111,7 @@ export const Products: React.FC = () => {
   const [suggestedPriceShoppe, setSuggestedPriceShoppe] = useState<number | null>(null);
   const [suggestedPriceParticular, setSuggestedPriceParticular] = useState<number | null>(null);
   const [suggestedPriceMercadoLivre, setSuggestedPriceMercadoLivre] = useState<number | null>(null);
-  const [, setProductionCost] = useState<number | null>(null);
+  const [productionCost, setProductionCost] = useState<number | null>(null);
   const [netProfit, setNetProfit] = useState<number | null>(null);
   const [netProfitShoppe, setNetProfitShoppe] = useState<number | null>(null);
   const [netProfitMercadoLivre, setNetProfitMercadoLivre] = useState<number | null>(null);
@@ -120,7 +120,7 @@ export const Products: React.FC = () => {
   const [packagingCost, setPackagingCost] = useState<number | null>(null);
   const [accessoryCostTotal, setAccessoryCostTotal] = useState<number | null>(null);
   const [, setShopeeCostsTotal] = useState<number | null>(null);
-  const [, setMercadoLivreCostsTotal] = useState<number | null>(null);
+  const [mercadoLivreCostsTotal, setMercadoLivreCostsTotal] = useState<number | null>(null);
   const [productionCostWithoutShoppe, setProductionCostWithoutShoppe] = useState<number | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   
@@ -1226,7 +1226,7 @@ export const Products: React.FC = () => {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
                   <label className="form-label">Preço Venda Particular (R$)</label>
                   <input 
@@ -1237,6 +1237,30 @@ export const Products: React.FC = () => {
                     className="form-input" 
                     required 
                   />
+                  {(() => {
+                    const price = parseFloat(salePriceParticular);
+                    const baseCost = productionCostWithoutShoppe;
+                    if (!baseCost || baseCost <= 0 || isNaN(price) || price <= 0) {
+                      return (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                          Margem real: <strong>0,00%</strong> (R$ 0,00)
+                        </span>
+                      );
+                    }
+                    const realProfit = price - baseCost;
+                    const realMarginPct = (realProfit / baseCost) * 100;
+                    const isPositive = realMarginPct >= 0;
+                    return (
+                      <span style={{
+                        fontSize: '0.75rem',
+                        color: isPositive ? 'var(--success)' : 'var(--danger)',
+                        marginTop: '0.15rem',
+                        fontWeight: 500
+                      }}>
+                        Margem real: <strong>{realMarginPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</strong> ({realProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
                   <label className="form-label">Preço Venda Shoppe (R$)</label>
@@ -1248,6 +1272,30 @@ export const Products: React.FC = () => {
                     className="form-input" 
                     required 
                   />
+                  {(() => {
+                    const price = parseFloat(salePriceShoppe);
+                    const baseCost = productionCost;
+                    if (!baseCost || baseCost <= 0 || isNaN(price) || price <= 0) {
+                      return (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                          Margem real: <strong>0,00%</strong> (R$ 0,00)
+                        </span>
+                      );
+                    }
+                    const realProfit = price - baseCost;
+                    const realMarginPct = (realProfit / baseCost) * 100;
+                    const isPositive = realMarginPct >= 0;
+                    return (
+                      <span style={{
+                        fontSize: '0.75rem',
+                        color: isPositive ? 'var(--success)' : 'var(--danger)',
+                        marginTop: '0.15rem',
+                        fontWeight: 500
+                      }}>
+                        Margem real: <strong>{realMarginPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</strong> ({realProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
                   <label className="form-label">Preço Venda Mercado Livre (R$)</label>
@@ -1260,9 +1308,35 @@ export const Products: React.FC = () => {
                     onChange={(e) => setSalePriceMercadoLivre(e.target.value)} 
                     className="form-input" 
                   />
+                  {(() => {
+                    const price = parseFloat(salePriceMercadoLivre);
+                    const baseCost = productionCostWithoutShoppe !== null && productionCostWithoutShoppe > 0
+                      ? productionCostWithoutShoppe + (mercadoLivreCostsTotal ?? 0)
+                      : null;
+                    if (!baseCost || baseCost <= 0 || isNaN(price) || price <= 0) {
+                      return (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                          Margem real: <strong>0,00%</strong> (R$ 0,00)
+                        </span>
+                      );
+                    }
+                    const realProfit = price - baseCost;
+                    const realMarginPct = (realProfit / baseCost) * 100;
+                    const isPositive = realMarginPct >= 0;
+                    return (
+                      <span style={{
+                        fontSize: '0.75rem',
+                        color: isPositive ? 'var(--success)' : 'var(--danger)',
+                        marginTop: '0.15rem',
+                        fontWeight: 500
+                      }}>
+                        Margem real: <strong>{realMarginPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</strong> ({realProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+                      </span>
+                    );
+                  })()}
                 </div>
                 
-                <div className="form-group" style={{ flex: 0.4, minWidth: '90px', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '1.5rem' }}>
+                <div className="form-group" style={{ flex: 0.4, minWidth: '90px', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '2.1rem' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', userSelect: 'none' }}>
                     <input 
                       type="checkbox" 
