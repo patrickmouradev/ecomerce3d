@@ -1392,63 +1392,151 @@ export const Catalog: React.FC = () => {
         <div
           style={{
             position: 'relative',
-            height: '350px',
+            height: '360px',
             borderRadius: 'var(--radius-lg)',
             overflow: 'hidden',
             marginBottom: '3rem',
-            border: '1px solid var(--border-glow)'
+            border: '1px solid var(--border-glow)',
+            background: '#08090c'
           }}
         >
-          {banners.map((banner, index) => (
-            <div
-              key={banner.id}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                opacity: index === activeBannerIndex ? 1 : 0,
-                transition: 'opacity 0.8s ease',
-                backgroundImage: `linear-gradient(to top, rgba(8,9,12,0.9), rgba(0,0,0,0.2)), url(${banner.imagePath})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                display: 'flex',
-                alignItems: 'flex-end',
-                padding: '3rem'
-              }}
-            >
-              <div>
-                <span
+          {banners.map((banner, index) => {
+            const isActive = index === activeBannerIndex;
+            const isVideo = banner.imagePath?.toLowerCase().endsWith('.mp4');
+            return (
+              <div
+                key={banner.id}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  opacity: isActive ? 1 : 0,
+                  pointerEvents: isActive ? 'auto' : 'none',
+                  transition: 'opacity 0.8s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '2rem',
+                  padding: '2rem 4.5rem',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* Fundo ambientado com blur para preencher o banner sem distorcer a foto principal */}
+                {!isVideo && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      backgroundImage: `url(${banner.imagePath})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      filter: 'blur(28px) brightness(0.35)',
+                      transform: 'scale(1.15)',
+                      zIndex: 0
+                    }}
+                  />
+                )}
+                <div
                   style={{
-                    background: 'var(--primary-glow)',
-                    border: '1px solid var(--primary)',
-                    color: 'var(--primary)',
-                    padding: '0.25rem 0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase'
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(90deg, rgba(8,9,12,0.92) 0%, rgba(8,9,12,0.65) 55%, rgba(8,9,12,0.3) 100%)',
+                    zIndex: 1
+                  }}
+                />
+
+                {/* Conteúdo textual à esquerda */}
+                <div style={{ position: 'relative', zIndex: 2, flex: '1 1 50%', maxWidth: '580px' }}>
+                  <span
+                    style={{
+                      background: 'var(--primary-glow)',
+                      border: '1px solid var(--primary)',
+                      color: 'var(--primary)',
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      display: 'inline-block'
+                    }}
+                  >
+                    Destaque da Loja
+                  </span>
+                  <h1
+                    style={{
+                      fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
+                      color: '#fff',
+                      marginTop: '0.75rem',
+                      fontFamily: 'var(--font-display)',
+                      lineHeight: 1.15
+                    }}
+                  >
+                    {banner.title}
+                  </h1>
+                  <button
+                    className="btn btn-primary"
+                    style={{ marginTop: '1.25rem' }}
+                    onClick={() => {
+                      const found = products.find((p) => p.id === banner.productId);
+                      if (found) handleOpenDetails(found);
+                    }}
+                  >
+                    Ver Detalhes do Modelo
+                  </button>
+                </div>
+
+                {/* Imagem / Vídeo proporcional à direita */}
+                <div
+                  style={{
+                    position: 'relative',
+                    zIndex: 2,
+                    flex: '0 1 420px',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}
                 >
-                  Destaque da Loja
-                </span>
-                <h1 style={{ fontSize: '2.5rem', color: '#fff', marginTop: '0.75rem', fontFamily: 'var(--font-display)' }}>
-                  {banner.title}
-                </h1>
-                <button
-                  className="btn btn-primary"
-                  style={{ marginTop: '1.25rem' }}
-                  onClick={() => {
-                    const found = products.find((p) => p.id === banner.productId);
-                    if (found) handleOpenDetails(found);
-                  }}
-                >
-                  Ver Detalhes do Modelo
-                </button>
+                  {isVideo ? (
+                    <video
+                      src={banner.imagePath}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '300px',
+                        width: 'auto',
+                        height: 'auto',
+                        objectFit: 'contain',
+                        borderRadius: 'var(--radius-md)',
+                        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={banner.imagePath}
+                      alt={banner.title}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '300px',
+                        width: 'auto',
+                        height: 'auto',
+                        objectFit: 'contain',
+                        borderRadius: 'var(--radius-md)',
+                        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                      }}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Controles de Carrossel de Banner */}
           {banners.length > 1 && (
@@ -1469,7 +1557,8 @@ export const Catalog: React.FC = () => {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  zIndex: 3
                 }}
               >
                 <ChevronLeft size={20} />
@@ -1490,7 +1579,8 @@ export const Catalog: React.FC = () => {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  zIndex: 3
                 }}
               >
                 <ChevronRight size={20} />
