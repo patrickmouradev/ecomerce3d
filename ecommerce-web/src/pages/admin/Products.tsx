@@ -130,6 +130,7 @@ export const Products: React.FC = () => {
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   
   const [formError, setFormError] = useState('');
+  const [listError, setListError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [draggedMediaIndex, setDraggedMediaIndex] = useState<number | null>(null);
@@ -692,13 +693,35 @@ export const Products: React.FC = () => {
     }
   };
 
+  const handleToggleActive = async (prod: Product) => {
+    setListError('');
+    const newActive = !prod.active;
+    // Atualização otimista na lista
+    setProducts((prev) =>
+      prev.map((p) => (p.id === prod.id ? { ...p, active: newActive } : p))
+    );
+    try {
+      await api.patch(`/api/admin/products/${prod.id}/active`, { active: newActive });
+    } catch (err: any) {
+      // Reverte caso ocorra erro
+      setProducts((prev) =>
+        prev.map((p) => (p.id === prod.id ? { ...p, active: prod.active } : p))
+      );
+      setListError(err.response?.data?.message || 'Erro ao alterar status de ativação do produto.');
+    }
+  };
+
   const handleDelete = async (id: string, name: string) => {
-    if (window.confirm(`Tem certeza que deseja inativar o produto "${name}"?`)) {
+    setListError('');
+    if (window.confirm(`Tem certeza que deseja excluir permanentemente o produto "${name}"?`)) {
       try {
         await api.delete(`/api/admin/products/${id}`);
         fetchProducts();
-      } catch (err) {
-        console.error("Erro ao inativar produto", err);
+      } catch (err: any) {
+        const errorMessage =
+          err.response?.data?.message ||
+          'Não foi possível excluir o produto pois existem vendas vinculadas a ele.';
+        setListError(errorMessage);
       }
     }
   };
@@ -727,7 +750,7 @@ export const Products: React.FC = () => {
       </div>
 
       {/* Barra de Filtro */}
-      <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: '2.5rem', display: 'flex', gap: '1rem' }}>
+      <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: listError ? '1rem' : '2.5rem', display: 'flex', gap: '1rem' }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <input 
             type="text" 
@@ -740,6 +763,44 @@ export const Products: React.FC = () => {
           <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
         </div>
       </div>
+
+      {/* Alerta de Erro na Listagem (ex: Exclusão bloqueada por vínculo de venda) */}
+      {listError && (
+        <div
+          style={{
+            marginBottom: '1.5rem',
+            padding: '1rem 1.25rem',
+            background: 'rgba(255, 59, 48, 0.12)',
+            border: '1px solid var(--danger)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--danger)',
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem'
+          }}
+        >
+          <span>{listError}</span>
+          <button
+            type="button"
+            onClick={() => setListError('')}
+            title="Fechar aviso"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--danger)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0.2rem'
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
 
       {/* Tabela de Listagem de Produtos */}
       {loading ? (
@@ -767,7 +828,7 @@ export const Products: React.FC = () => {
                   Venda Mercado Livre <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
                 <th style={{ textAlign: 'center' }}>Anexo</th>
-                <th style={{ textAlign: 'center' }}>Status</th>
+                <th style={{ textAlign: 'center' }}>Ativo</th>
                 <th style={{ textAlign: 'center' }}>Ações</th>
               </tr>
             </thead>
@@ -846,14 +907,19 @@ export const Products: React.FC = () => {
                     </span>
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <span style={{
-                      padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600,
-                      background: prod.active ? 'var(--success-glow)' : 'rgba(255,59,48,0.1)',
-                      color: prod.active ? 'var(--success)' : 'var(--danger)',
-                      border: `1px solid ${prod.active ? 'rgba(0,255,136,0.2)' : 'rgba(255,59,48,0.2)'}`
-                    }}>
-                      {prod.active ? 'Ativo' : 'Inativo'}
-                    </span>
+                    <input
+                      type="checkbox"
+                      checked={prod.active}
+                      onChange={() => handleToggleActive(prod)}
+                      title={prod.active ? 'Produto ativo (clique para inativar)' : 'Produto inativo (clique para ativar)'}
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        accentColor: 'var(--primary)',
+                        cursor: 'pointer',
+                        verticalAlign: 'middle'
+                      }}
+                    />
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <div style={{ display: 'inline-flex', gap: '0.5rem', justifyContent: 'center' }}>

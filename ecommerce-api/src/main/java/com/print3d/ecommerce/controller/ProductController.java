@@ -80,12 +80,28 @@ public class ProductController {
         return ResponseEntity.ok(productService.update(id, dto));
     }
 
-    @DeleteMapping("/api/admin/products/{id}")
-    @Operation(summary = "Exclusão lógica de um produto (inativa o registro)")
+    @PatchMapping("/api/admin/products/{id}/active")
+    @Operation(summary = "Ativa ou inativa um produto")
     @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<Void> logicalDelete(@PathVariable UUID id) {
-        productService.logicalDelete(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<ProductDto> toggleActive(@PathVariable UUID id, @RequestBody Map<String, Boolean> body) {
+        boolean active = Boolean.TRUE.equals(body.get("active"));
+        return ResponseEntity.ok(productService.toggleActive(id, active));
+    }
+
+    @DeleteMapping("/api/admin/products/{id}")
+    @Operation(summary = "Exclusão física de um produto (permitida apenas se não houver vendas vinculadas)")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<?> delete(@PathVariable UUID id) {
+        try {
+            productService.delete(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Collections.singletonMap("message", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Collections.singletonMap("message", e.getMessage()));
+        }
     }
 
     @PostMapping("/api/admin/products/pricing-preview")

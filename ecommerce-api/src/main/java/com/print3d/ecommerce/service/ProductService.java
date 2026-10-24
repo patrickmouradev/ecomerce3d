@@ -14,6 +14,7 @@ import com.print3d.ecommerce.model.ProductAccessory;
 import com.print3d.ecommerce.repository.AccessoryRepository;
 import com.print3d.ecommerce.repository.BannerRepository;
 import com.print3d.ecommerce.repository.FilamentRepository;
+import com.print3d.ecommerce.repository.OrderRepository;
 import com.print3d.ecommerce.repository.ProductRepository;
 import com.print3d.ecommerce.util.DatePatterns;
 import org.springframework.data.domain.Sort;
@@ -36,19 +37,22 @@ public class ProductService {
     private final PricingCalculatorService pricingCalculatorService;
     private final FileStorageService fileStorageService;
     private final BannerRepository bannerRepository;
+    private final OrderRepository orderRepository;
 
     public ProductService(ProductRepository productRepository,
                           FilamentRepository filamentRepository,
                           AccessoryRepository accessoryRepository,
                           PricingCalculatorService pricingCalculatorService,
                           FileStorageService fileStorageService,
-                          BannerRepository bannerRepository) {
+                          BannerRepository bannerRepository,
+                          OrderRepository orderRepository) {
         this.productRepository = productRepository;
         this.filamentRepository = filamentRepository;
         this.accessoryRepository = accessoryRepository;
         this.pricingCalculatorService = pricingCalculatorService;
         this.fileStorageService = fileStorageService;
         this.bannerRepository = bannerRepository;
+        this.orderRepository = orderRepository;
     }
 
     @Transactional(readOnly = true)
@@ -215,18 +219,34 @@ public class ProductService {
     }
 
     @Transactional
-    public void logicalDelete(UUID id) {
+    public ProductDto toggleActive(UUID id, boolean active) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
-        product.setActive(false);
-        productRepository.save(product);
+        product.setActive(active);
+        Product updated = productRepository.save(product);
 
-        // Inativa os banners vinculados a este produto
+        // Sincroniza status dos banners vinculados a este produto
         List<Banner> banners = bannerRepository.findByProductIdOrderByDisplayOrderAsc(id);
         for (Banner banner : banners) {
-            banner.setActive(false);
+            banner.setActive(active);
         }
         bannerRepository.saveAll(banners);
+
+        return convertToDto(updated);
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+
+        if (orderRepository.existsSalesByProductId(id)) {
+            throw new IllegalStateException("Não é possível excluir este produto pois existem vendas vinculadas a ele. Para retirá-lo do catálogo, apenas desmarque a opção Ativo.");
+        }
+
+        // Remove banners vinculados ao produto antes da exclusão física
+        bannerRepository.deleteByProductId(id);
+        productRepository.delete(product);
     }
 
     /**

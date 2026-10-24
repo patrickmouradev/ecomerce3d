@@ -20,4 +20,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByUserIdWithUser(@Param("userId") UUID userId);
 
     Optional<Order> findByMercadoPagoPaymentId(String mercadoPagoPaymentId);
+
+    @Query("SELECT COUNT(oi) > 0 FROM OrderItem oi WHERE oi.product.id = :productId")
+    boolean existsSalesByProductId(@Param("productId") UUID productId);
 }
