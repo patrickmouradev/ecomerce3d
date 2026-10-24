@@ -36,6 +36,10 @@ public class ProductDto {
 
     private List<ProductAccessoryDto> accessories;
 
+    private Boolean multiColor;
+
+    private List<String> availableColors;
+
     private BigDecimal suggestedPrice; // Calculado pelo sistema dinamicamente
     private BigDecimal suggestedPriceShoppe;
     private BigDecimal suggestedPriceParticular;

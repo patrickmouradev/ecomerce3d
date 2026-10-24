@@ -25,6 +25,8 @@ interface Product {
   description: string;
   salePriceParticular: number;
   weightG?: number;
+  multiColor?: boolean;
+  availableColors?: string[];
   filaments?: {
     filamentId: string;
     filamentLabel: string;
@@ -46,9 +48,12 @@ interface Banner {
    ========================================================================= */
 const ProductCard: React.FC<{
   product: Product;
-  onOpenDetails: (product: Product) => void;
+  onOpenDetails: (product: Product, initialColor?: string) => void;
 }> = ({ product, onOpenDetails }) => {
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [cardSelectedColor, setCardSelectedColor] = useState<string>(
+    product.availableColors && product.availableColors.length > 0 ? product.availableColors[0] : ''
+  );
   const mediaList = product.imagesVideosPaths || [];
   const hasMultipleMedia = mediaList.length > 1;
   const currentMedia = mediaList.length > 0 ? mediaList[currentMediaIndex] : null;
@@ -66,19 +71,10 @@ const ProductCard: React.FC<{
     setCurrentMediaIndex((prev) => (prev - 1 + mediaList.length) % mediaList.length);
   };
 
-  // Formata materiais de forma limpa sem quebrar o layout
-  const materials = Array.from(
-    new Set(
-      product.filaments
-        ?.map((f) => (f.filamentLabel ? f.filamentLabel.split(' - ')[0].trim() : ''))
-        .filter(Boolean) || []
-    )
-  );
-
   return (
     <div
       className="glass-panel"
-      onClick={() => onOpenDetails(product)}
+      onClick={() => onOpenDetails(product, cardSelectedColor)}
       style={{
         borderRadius: 'var(--radius-md)',
         overflow: 'hidden',
@@ -259,34 +255,6 @@ const ProductCard: React.FC<{
           </>
         )}
 
-        {/* Badge de Material Compacta */}
-        {materials.length > 0 && (
-          <span
-            style={{
-              position: 'absolute',
-              top: '0.75rem',
-              right: '0.75rem',
-              background: 'rgba(16, 18, 22, 0.85)',
-              backdropFilter: 'blur(6px)',
-              color: 'var(--text-primary)',
-              padding: '0.25rem 0.6rem',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              border: '1px solid var(--border-color)',
-              zIndex: 2,
-              letterSpacing: '0.02em',
-              maxWidth: '180px',
-              textOverflow: 'ellipsis',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {materials.slice(0, 2).join(', ')}
-            {materials.length > 2 ? ` +${materials.length - 2}` : ''}
-          </span>
-        )}
-
         {/* Contador de Mídias */}
         {hasMultipleMedia && (
           <span
@@ -331,7 +299,7 @@ const ProductCard: React.FC<{
             fontSize: '0.85rem',
             color: 'var(--text-secondary)',
             lineHeight: 1.5,
-            marginBottom: '1.25rem',
+            marginBottom: '0.85rem',
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
@@ -341,6 +309,65 @@ const ProductCard: React.FC<{
         >
           {product.description || 'Peça impressa sob medida com alta resolução e precisão técnica.'}
         </p>
+
+        {/* Cores Disponíveis ou MULT-COR no Card */}
+        {product.multiColor ? (
+          <div style={{ marginBottom: '0.9rem' }}>
+            <span
+              style={{
+                display: 'inline-block',
+                background: 'rgba(0, 240, 255, 0.08)',
+                border: '1px solid rgba(0, 240, 255, 0.3)',
+                color: 'var(--primary)',
+                padding: '0.25rem 0.6rem',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                letterSpacing: '0.03em'
+              }}
+            >
+              MULT-COR
+            </span>
+          </div>
+        ) : (
+          product.availableColors && product.availableColors.length > 0 && (
+            <div
+              style={{ marginBottom: '0.9rem' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <label
+                style={{
+                  fontSize: '0.7rem',
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  display: 'block',
+                  fontWeight: 700,
+                  marginBottom: '0.3rem',
+                  letterSpacing: '0.04em'
+                }}
+              >
+                Cores Disponíveis
+              </label>
+              <select
+                value={cardSelectedColor}
+                onChange={(e) => setCardSelectedColor(e.target.value)}
+                className="form-input"
+                style={{
+                  padding: '0.4rem 0.65rem',
+                  fontSize: '0.82rem',
+                  height: 'auto',
+                  cursor: 'pointer'
+                }}
+              >
+                {product.availableColors.map((col, idx) => (
+                  <option key={idx} value={col}>
+                    {col}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )
+        )}
 
         {/* Preço e Botão */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', gap: '0.5rem' }}>
@@ -358,7 +385,7 @@ const ProductCard: React.FC<{
             style={{ padding: '0.6rem 1rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
             onClick={(e) => {
               e.stopPropagation();
-              onOpenDetails(product);
+              onOpenDetails(product, cardSelectedColor);
             }}
           >
             <ShoppingCart size={15} />
@@ -375,20 +402,31 @@ const ProductCard: React.FC<{
    ========================================================================= */
 const ProductDetailModal: React.FC<{
   product: Product | null;
+  initialColor?: string;
   isOpen: boolean;
   onClose: () => void;
   onOpenLightbox: (index: number) => void;
-  onAddToCart: (product: Product, quantity: number) => void;
-}> = ({ product, isOpen, onClose, onOpenLightbox, onAddToCart }) => {
+  onAddToCart: (product: Product, quantity: number, selectedColor?: string) => void;
+}> = ({ product, initialColor, isOpen, onClose, onOpenLightbox, onAddToCart }) => {
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const [addedAnimation, setAddedAnimation] = useState(false);
 
   useEffect(() => {
     setSelectedMediaIndex(0);
     setQuantity(1);
     setAddedAnimation(false);
-  }, [product]);
+    if (product) {
+      if (initialColor && product.availableColors?.includes(initialColor)) {
+        setSelectedColor(initialColor);
+      } else if (product.availableColors && product.availableColors.length > 0) {
+        setSelectedColor(product.availableColors[0]);
+      } else {
+        setSelectedColor('');
+      }
+    }
+  }, [product, initialColor]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -408,7 +446,7 @@ const ProductDetailModal: React.FC<{
   const isVideo = currentMedia?.toLowerCase().endsWith('.mp4');
 
   const handleAddToCart = () => {
-    onAddToCart(product, quantity);
+    onAddToCart(product, quantity, product.multiColor ? 'MULT-COR' : selectedColor);
     setAddedAnimation(true);
     setTimeout(() => {
       setAddedAnimation(false);
@@ -723,45 +761,66 @@ const ProductDetailModal: React.FC<{
               </p>
             </div>
 
-            {/* Materiais e Especificações */}
-            {product.filaments && product.filaments.length > 0 && (
+            {/* Peso Total Aprox e Cores Disponíveis */}
+            {Boolean(product.weightG) && (
+              <div>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-secondary)',
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  Peso Total Aprox: <strong style={{ color: '#fff' }}>{product.weightG}g</strong>
+                </span>
+              </div>
+            )}
+
+            {/* Seleção de Cor ou Indicação MULT-COR */}
+            {product.multiColor ? (
               <div>
                 <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>
-                  Materiais e Filamentos Utilizados
+                  Cores Disponíveis
                 </h4>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {product.filaments.map((f, i) => (
-                    <span
-                      key={i}
-                      style={{
-                        background: 'rgba(0, 240, 255, 0.06)',
-                        border: '1px solid rgba(0, 240, 255, 0.25)',
-                        color: 'var(--primary)',
-                        padding: '0.35rem 0.65rem',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '0.8rem',
-                        fontWeight: 600
-                      }}
-                    >
-                      {f.filamentLabel} {f.weightG ? `(${f.weightG}g)` : ''}
-                    </span>
-                  ))}
-                  {product.weightG && (
-                    <span
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid var(--border-color)',
-                        color: 'var(--text-secondary)',
-                        padding: '0.35rem 0.65rem',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '0.8rem'
-                      }}
-                    >
-                      Peso Total Aprox: <strong>{product.weightG}g</strong>
-                    </span>
-                  )}
-                </div>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    background: 'rgba(0, 240, 255, 0.08)',
+                    border: '1px solid rgba(0, 240, 255, 0.3)',
+                    color: 'var(--primary)',
+                    padding: '0.4rem 0.85rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.85rem',
+                    fontWeight: 700
+                  }}
+                >
+                  MULT-COR
+                </span>
               </div>
+            ) : (
+              product.availableColors && product.availableColors.length > 0 && (
+                <div>
+                  <h4 style={{ fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.5rem', letterSpacing: '0.05em' }}>
+                    Cores Disponíveis
+                  </h4>
+                  <select
+                    value={selectedColor}
+                    onChange={(e) => setSelectedColor(e.target.value)}
+                    className="form-input"
+                    style={{ cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    {product.availableColors.map((col, idx) => (
+                      <option key={idx} value={col}>
+                        {col}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )
             )}
 
             {/* Seletor de Quantidade e Subtotal */}
@@ -1135,6 +1194,7 @@ export const Catalog: React.FC = () => {
 
   // Estados dos Modais
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedInitialColor, setSelectedInitialColor] = useState<string | undefined>(undefined);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
@@ -1216,8 +1276,9 @@ export const Catalog: React.FC = () => {
     }
   };
 
-  const handleOpenDetails = (product: Product) => {
+  const handleOpenDetails = (product: Product, initialColor?: string) => {
     setSelectedProduct(product);
+    setSelectedInitialColor(initialColor);
     setIsDetailModalOpen(true);
   };
 
@@ -1233,17 +1294,21 @@ export const Catalog: React.FC = () => {
     setLightboxIndex(null);
   };
 
-  const handleAddToCart = (product: Product, quantity: number) => {
+  const handleAddToCart = (product: Product, quantity: number, selectedColor?: string) => {
     try {
       const existingCart = JSON.parse(localStorage.getItem('3dprintpng_cart') || '[]');
-      const existingIndex = existingCart.findIndex((item: any) => item.id === product.id);
+      const displayName = selectedColor ? `${product.name} (${selectedColor})` : product.name;
+      const existingIndex = existingCart.findIndex(
+        (item: any) => item.id === product.id && (item.selectedColor || '') === (selectedColor || '')
+      );
 
       if (existingIndex >= 0) {
         existingCart[existingIndex].quantity = (existingCart[existingIndex].quantity || 1) + quantity;
       } else {
         existingCart.push({
           id: product.id,
-          name: product.name,
+          name: displayName,
+          selectedColor: selectedColor || null,
           price: product.salePriceParticular,
           quantity: quantity,
           image: product.imagesVideosPaths && product.imagesVideosPaths.length > 0 ? product.imagesVideosPaths[0] : null,
@@ -1254,7 +1319,7 @@ export const Catalog: React.FC = () => {
       localStorage.setItem('3dprintpng_cart', JSON.stringify(existingCart));
       window.dispatchEvent(new Event('cart_updated'));
 
-      setToastMessage(`${quantity}x "${product.name}" adicionado ao carrinho!`);
+      setToastMessage(`${quantity}x "${displayName}" adicionado ao carrinho!`);
       setTimeout(() => setToastMessage(null), 3500);
     } catch (e) {
       console.error('Erro ao salvar no carrinho', e);
@@ -1538,6 +1603,7 @@ export const Catalog: React.FC = () => {
       {/* Modal de Detalhes do Produto */}
       <ProductDetailModal
         product={selectedProduct}
+        initialColor={selectedInitialColor}
         isOpen={isDetailModalOpen}
         onClose={handleCloseDetails}
         onOpenLightbox={handleOpenLightbox}

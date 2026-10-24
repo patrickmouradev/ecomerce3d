@@ -25,6 +25,8 @@ interface Product {
   printingHours: number;
   filaments: ProductFilament[];
   accessories?: ProductAccessory[];
+  multiColor?: boolean;
+  availableColors?: string[];
   accessoryCostTotal?: number;
   suggestedPrice: number;
   suggestedPriceShoppe: number;
@@ -99,6 +101,9 @@ export const Products: React.FC = () => {
   const [printingHours, setPrintingHours] = useState('');
   const [productFilaments, setProductFilaments] = useState<{ filamentId: string; weightG: string }[]>([]);
   const [productAccessories, setProductAccessories] = useState<{ accessoryId: string; description: string; price: number; quantity: number }[]>([]);
+  const [multiColor, setMultiColor] = useState(false);
+  const [availableColors, setAvailableColors] = useState<string[]>([]);
+  const [newColorInput, setNewColorInput] = useState('');
   const [profitMargin, setProfitMargin] = useState('');
   const [salePriceParticular, setSalePriceParticular] = useState('');
   const [salePriceShoppe, setSalePriceShoppe] = useState('');
@@ -330,6 +335,9 @@ export const Products: React.FC = () => {
     setDescription('');
     setProductFilaments([]);
     setProductAccessories([]);
+    setMultiColor(false);
+    setAvailableColors([]);
+    setNewColorInput('');
     setPrintingHours('');
     setProfitMargin('');
     setSalePriceParticular('');
@@ -375,6 +383,9 @@ export const Products: React.FC = () => {
         quantity: pa.quantity
       })) || []
     );
+    setMultiColor(!!prod.multiColor);
+    setAvailableColors(prod.multiColor ? [] : (prod.availableColors || []));
+    setNewColorInput('');
     setPrintingHours(prod.printingHours.toString());
     setProfitMargin(prod.profitMargin.toString());
     setSalePriceParticular(prod.salePriceParticular.toString());
@@ -420,6 +431,9 @@ export const Products: React.FC = () => {
         quantity: pa.quantity
       })) || []
     );
+    setMultiColor(!!prod.multiColor);
+    setAvailableColors(prod.multiColor ? [] : (prod.availableColors || []));
+    setNewColorInput('');
     setPrintingHours(prod.printingHours.toString());
     setProfitMargin(prod.profitMargin.toString());
     setSalePriceParticular(prod.salePriceParticular.toString());
@@ -654,6 +668,8 @@ export const Products: React.FC = () => {
         accessoryId: a.accessoryId,
         quantity: a.quantity
       })),
+      multiColor: multiColor,
+      availableColors: multiColor ? [] : availableColors,
       profitMargin: margin,
       salePriceParticular: priceParticular,
       salePriceShoppe: priceShoppe,
@@ -1109,6 +1125,165 @@ export const Products: React.FC = () => {
                     <Plus size={14} />
                     Adicionar Acessório
                   </button>
+                </div>
+              </div>
+
+              {/* Seção de Cores Disponíveis no Catálogo */}
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>
+                    Cores Disponíveis no Catálogo
+                  </label>
+                  <label style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    background: multiColor ? 'rgba(0, 240, 255, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                    border: `1px solid ${multiColor ? 'var(--primary)' : 'var(--border-color)'}`,
+                    padding: '0.3rem 0.7rem',
+                    borderRadius: 'var(--radius-sm)',
+                    transition: 'var(--transition-fast)'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={multiColor}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setMultiColor(checked);
+                        if (checked) {
+                          setAvailableColors([]);
+                          setNewColorInput('');
+                        }
+                      }}
+                      style={{ width: '16px', height: '16px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: multiColor ? 'var(--primary)' : 'var(--text-primary)' }}>
+                      MULT-COR
+                    </span>
+                  </label>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                  background: 'rgba(0, 0, 0, 0.2)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.75rem'
+                }}>
+                  {multiColor ? (
+                    <div style={{
+                      padding: '0.85rem',
+                      textAlign: 'center',
+                      background: 'rgba(0, 240, 255, 0.05)',
+                      border: '1px dashed var(--primary)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--primary)',
+                      fontSize: '0.85rem',
+                      fontWeight: 600
+                    }}>
+                      Flag MULT-COR ativa — não é permitido cadastrar lista de cores individuais quando o produto é Multicor.
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          list="filament-colors-suggestions"
+                          placeholder="Cor (ex: Preto, Branco, Dourado, Vermelho Neon)..."
+                          value={newColorInput}
+                          onChange={(e) => setNewColorInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const trimmed = newColorInput.trim();
+                              if (trimmed && !availableColors.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+                                setAvailableColors([...availableColors, trimmed]);
+                                setNewColorInput('');
+                              }
+                            }
+                          }}
+                          className="form-input"
+                          style={{ flex: 1, fontSize: '0.85rem', padding: '0.55rem 0.8rem' }}
+                        />
+                        <datalist id="filament-colors-suggestions">
+                          {Array.from(new Set(filaments.map(f => f.color).filter(Boolean))).map((col) => (
+                            <option key={col} value={col} />
+                          ))}
+                        </datalist>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = newColorInput.trim();
+                            if (trimmed && !availableColors.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+                              setAvailableColors([...availableColors, trimmed]);
+                              setNewColorInput('');
+                            }
+                          }}
+                          className="btn btn-secondary"
+                          style={{ padding: '0.55rem 0.9rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                        >
+                          <Plus size={14} />
+                          Adicionar Cor
+                        </button>
+                      </div>
+
+                      {availableColors.length === 0 ? (
+                        <div style={{
+                          padding: '0.75rem',
+                          textAlign: 'center',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: '1px dashed var(--border-color)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.82rem'
+                        }}>
+                          Nenhuma cor adicionada ainda. Digite o nome da cor acima e clique em "Adicionar Cor" ou marque a opção MULT-COR.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {availableColors.map((col, idx) => (
+                            <span
+                              key={idx}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.45rem',
+                                background: 'rgba(0, 240, 255, 0.08)',
+                                border: '1px solid rgba(0, 240, 255, 0.3)',
+                                color: '#fff',
+                                padding: '0.35rem 0.65rem',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.82rem',
+                                fontWeight: 600
+                              }}
+                            >
+                              {col}
+                              <button
+                                type="button"
+                                onClick={() => setAvailableColors(availableColors.filter((_, i) => i !== idx))}
+                                title="Remover cor"
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--danger)',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  padding: 0
+                                }}
+                              >
+                                <X size={13} />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 

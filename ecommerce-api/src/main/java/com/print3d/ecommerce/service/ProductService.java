@@ -6,6 +6,7 @@ import com.print3d.ecommerce.dto.ProductFilamentDto;
 import com.print3d.ecommerce.model.Banner;
 import com.print3d.ecommerce.model.Filament;
 import com.print3d.ecommerce.model.Product;
+import com.print3d.ecommerce.model.ProductColor;
 import com.print3d.ecommerce.model.ProductFilament;
 import com.print3d.ecommerce.dto.ProductAccessoryDto;
 import com.print3d.ecommerce.model.Accessory;
@@ -79,6 +80,7 @@ public class ProductService {
 
     @Transactional
     public ProductDto create(ProductDto dto) {
+        boolean isMultiColor = Boolean.TRUE.equals(dto.getMultiColor());
         Product product = Product.builder()
                 .name(dto.getName().trim())
                 .description(dto.getDescription())
@@ -87,9 +89,23 @@ public class ProductService {
                 .salePriceParticular(dto.getSalePriceParticular())
                 .salePriceShoppe(dto.getSalePriceShoppe())
                 .salePriceMercadoLivre(dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO)
+                .multiColor(isMultiColor)
                 .active(dto.getActive() != null ? dto.getActive() : true)
                 .imagesVideosPaths(dto.getImagesVideosPaths() != null ? dto.getImagesVideosPaths() : new ArrayList<>())
                 .build();
+
+        if (!isMultiColor && dto.getAvailableColors() != null) {
+            List<ProductColor> pcList = new ArrayList<>();
+            for (String colorStr : dto.getAvailableColors()) {
+                if (colorStr != null && !colorStr.trim().isEmpty()) {
+                    pcList.add(ProductColor.builder()
+                            .product(product)
+                            .color(colorStr.trim())
+                            .build());
+                }
+            }
+            product.setAvailableColors(pcList);
+        }
 
         if (dto.getFilaments() != null) {
             List<ProductFilament> pfList = new ArrayList<>();
@@ -134,6 +150,7 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
 
+        boolean isMultiColor = Boolean.TRUE.equals(dto.getMultiColor());
         product.setName(dto.getName().trim());
         product.setDescription(dto.getDescription());
         product.setPrintingHours(dto.getPrintingHours());
@@ -141,11 +158,24 @@ public class ProductService {
         product.setSalePriceParticular(dto.getSalePriceParticular());
         product.setSalePriceShoppe(dto.getSalePriceShoppe());
         product.setSalePriceMercadoLivre(dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO);
+        product.setMultiColor(isMultiColor);
         if (dto.getActive() != null) {
             product.setActive(dto.getActive());
         }
         if (dto.getImagesVideosPaths() != null) {
             product.setImagesVideosPaths(dto.getImagesVideosPaths());
+        }
+
+        product.getAvailableColors().clear();
+        if (!isMultiColor && dto.getAvailableColors() != null) {
+            for (String colorStr : dto.getAvailableColors()) {
+                if (colorStr != null && !colorStr.trim().isEmpty()) {
+                    product.getAvailableColors().add(ProductColor.builder()
+                            .product(product)
+                            .color(colorStr.trim())
+                            .build());
+                }
+            }
         }
 
         product.getFilaments().clear();
@@ -317,6 +347,15 @@ public class ProductService {
             }
         }
 
+        List<String> colorsDto = new ArrayList<>();
+        if (!product.isMultiColor() && product.getAvailableColors() != null) {
+            for (ProductColor pc : product.getAvailableColors()) {
+                if (pc.getColor() != null && !pc.getColor().trim().isEmpty()) {
+                    colorsDto.add(pc.getColor().trim());
+                }
+            }
+        }
+
         com.print3d.ecommerce.dto.PricingResult pricing = pricingCalculatorService.calculatePricing(product);
 
         // Busca as imagens que estão ativas no banner deste produto
@@ -333,6 +372,8 @@ public class ProductService {
                 .printingHours(product.getPrintingHours())
                 .filaments(filamentsDto)
                 .accessories(accessoriesDto)
+                .multiColor(product.isMultiColor())
+                .availableColors(colorsDto)
                 .productionCost(pricing.getProductionCost())
                 .suggestedPrice(pricing.getSuggestedPrice())
                 .suggestedPriceShoppe(pricing.getSuggestedPriceShoppe())
