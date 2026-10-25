@@ -19,6 +19,9 @@ pipeline {
         MERCADO_PAGO_PUBLIC_KEY   = credentials('LOJA_MERCADO_PAGO_PUBLIC_KEY')
         MERCADO_PAGO_ACCESS_TOKEN = credentials('LOJA_MERCADO_PAGO_ACCESS_TOKEN')
 
+        // CEP de origem fixo da loja
+        MELHOR_ENVIO_CEP_ORIGEM   = '09894280'
+
         // Docker
         DOCKER_IMAGE     = 'patrickmoura/ecommerce-api'
         CONTAINER_NAME   = '3dprintpng-api'
@@ -105,6 +108,7 @@ pipeline {
                         -e CRYPT_SECRET_KEY="${CRYPT_SECRET_KEY}" \
                         -e ADMIN_FIRST_EMAIL="${ADMIN_FIRST_EMAIL}" \
                         -e MELHOR_ENVIO_API_URL="${MELHOR_ENVIO_API_URL}" \
+                        -e MELHOR_ENVIO_CEP_ORIGEM="${MELHOR_ENVIO_CEP_ORIGEM}" \
                         -e MELHOR_ENVIO_TOKEN="${MELHOR_ENVIO_TOKEN}" \
                         -e MERCADO_PAGO_PUBLIC_KEY="${MERCADO_PAGO_PUBLIC_KEY}" \
                         -e MERCADO_PAGO_ACCESS_TOKEN="${MERCADO_PAGO_ACCESS_TOKEN}" \
@@ -136,7 +140,11 @@ pipeline {
             echo "Pipeline do Backend FALHOU no build #${BUILD_NUMBER}."
         }
         always {
-            sh 'docker image prune -f || true'
+            script {
+                if (getContext(hudson.FilePath)) {
+                    sh 'docker image prune -f || true'
+                }
+            }
         }
     }
 }
