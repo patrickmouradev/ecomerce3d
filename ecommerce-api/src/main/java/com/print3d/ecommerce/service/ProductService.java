@@ -84,7 +84,13 @@ public class ProductService {
 
     @Transactional
     public ProductDto create(ProductDto dto) {
-        boolean isMultiColor = Boolean.TRUE.equals(dto.getMultiColor());
+        List<String> validColors = dto.getAvailableColors() == null
+                ? List.of()
+                : dto.getAvailableColors().stream()
+                        .filter(c -> c != null && !c.trim().isEmpty())
+                        .map(String::trim)
+                        .toList();
+        boolean isMultiColor = Boolean.TRUE.equals(dto.getMultiColor()) || validColors.isEmpty();
         Product product = Product.builder()
                 .name(dto.getName().trim())
                 .description(dto.getDescription())
@@ -98,15 +104,13 @@ public class ProductService {
                 .imagesVideosPaths(dto.getImagesVideosPaths() != null ? dto.getImagesVideosPaths() : new ArrayList<>())
                 .build();
 
-        if (!isMultiColor && dto.getAvailableColors() != null) {
+        if (!isMultiColor) {
             List<ProductColor> pcList = new ArrayList<>();
-            for (String colorStr : dto.getAvailableColors()) {
-                if (colorStr != null && !colorStr.trim().isEmpty()) {
-                    pcList.add(ProductColor.builder()
-                            .product(product)
-                            .color(colorStr.trim())
-                            .build());
-                }
+            for (String colorStr : validColors) {
+                pcList.add(ProductColor.builder()
+                        .product(product)
+                        .color(colorStr)
+                        .build());
             }
             product.setAvailableColors(pcList);
         }
@@ -154,7 +158,13 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
 
-        boolean isMultiColor = Boolean.TRUE.equals(dto.getMultiColor());
+        List<String> validColors = dto.getAvailableColors() == null
+                ? List.of()
+                : dto.getAvailableColors().stream()
+                        .filter(c -> c != null && !c.trim().isEmpty())
+                        .map(String::trim)
+                        .toList();
+        boolean isMultiColor = Boolean.TRUE.equals(dto.getMultiColor()) || validColors.isEmpty();
         product.setName(dto.getName().trim());
         product.setDescription(dto.getDescription());
         product.setPrintingHours(dto.getPrintingHours());
@@ -171,14 +181,12 @@ public class ProductService {
         }
 
         product.getAvailableColors().clear();
-        if (!isMultiColor && dto.getAvailableColors() != null) {
-            for (String colorStr : dto.getAvailableColors()) {
-                if (colorStr != null && !colorStr.trim().isEmpty()) {
-                    product.getAvailableColors().add(ProductColor.builder()
-                            .product(product)
-                            .color(colorStr.trim())
-                            .build());
-                }
+        if (!isMultiColor) {
+            for (String colorStr : validColors) {
+                product.getAvailableColors().add(ProductColor.builder()
+                        .product(product)
+                        .color(colorStr)
+                        .build());
             }
         }
 

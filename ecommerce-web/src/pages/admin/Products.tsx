@@ -657,6 +657,14 @@ export const Products: React.FC = () => {
       return;
     }
 
+    const pendingColor = newColorInput.trim();
+    const effectiveColors = !multiColor
+      ? (pendingColor && !availableColors.some(c => c.toLowerCase() === pendingColor.toLowerCase())
+          ? [...availableColors, pendingColor]
+          : availableColors)
+      : [];
+    const effectiveMultiColor = multiColor || effectiveColors.length === 0;
+
     const payload = {
       name: name.trim(),
       description: description.trim(),
@@ -669,8 +677,8 @@ export const Products: React.FC = () => {
         accessoryId: a.accessoryId,
         quantity: a.quantity
       })),
-      multiColor: multiColor,
-      availableColors: multiColor ? [] : availableColors,
+      multiColor: effectiveMultiColor,
+      availableColors: effectiveMultiColor ? [] : effectiveColors,
       profitMargin: margin,
       salePriceParticular: priceParticular,
       salePriceShoppe: priceShoppe,
@@ -1307,7 +1315,7 @@ export const Products: React.FC = () => {
                           color: 'var(--text-muted)',
                           fontSize: '0.82rem'
                         }}>
-                          Nenhuma cor adicionada ainda. Digite o nome da cor acima e clique em "Adicionar Cor" ou marque a opção MULT-COR.
+                          Nenhuma cor adicionada ainda. Se salvar sem definir nenhuma cor, o produto será salvo automaticamente como MULT-COR.
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
