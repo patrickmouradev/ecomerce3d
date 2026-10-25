@@ -51,8 +51,15 @@ spec:
                 secretKeyRef:
                   name: ecommerce-secret
                   key: ADMIN_FIRST_EMAIL
-            - name: CORREIOS_API_URL
-              value: https://api.correios.com.br
+            - name: MELHOR_ENVIO_API_URL
+              value: https://sandbox.melhorenvio.com.br
+            - name: MELHOR_ENVIO_USER_AGENT
+              value: "3DPrintPNG (3dprintpng@gmail.com)"
+            - name: MELHOR_ENVIO_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ecommerce-secret
+                  key: MELHOR_ENVIO_TOKEN
             - name: MERCADO_PAGO_PUBLIC_KEY
               valueFrom:
                 secretKeyRef:

@@ -1,5 +1,6 @@
 package com.print3d.ecommerce.controller;
 
+import com.print3d.ecommerce.dto.OrderMessageDto;
 import com.print3d.ecommerce.dto.OrderResponseDto;
 import com.print3d.ecommerce.model.Order;
 import com.print3d.ecommerce.model.User;
@@ -66,6 +67,36 @@ public class OrderController {
 
         order = orderRepository.save(order);
         return ResponseEntity.ok(checkoutService.toOrderResponseDto(order));
+    }
+
+    @GetMapping("/{orderId}/messages")
+    @Operation(summary = "Lista as mensagens do chat entre vendedor e comprador de um pedido")
+    public ResponseEntity<List<OrderMessageDto>> getOrderMessages(@PathVariable UUID orderId) {
+        UUID userId = getCurrentUserId();
+        return ResponseEntity.ok(checkoutService.getOrderMessages(userId, true, orderId));
+    }
+
+    @PostMapping("/{orderId}/messages")
+    @Operation(summary = "Envia uma mensagem no chat do pedido como VENDEDOR (ex: enviar chave PIX)")
+    public ResponseEntity<?> sendSellerMessage(
+            @PathVariable UUID orderId,
+            @RequestBody Map<String, String> payload) {
+        try {
+            UUID userId = getCurrentUserId();
+            String message = payload.get("message");
+            OrderMessageDto saved = checkoutService.sendOrderMessage(userId, true, true, orderId, message);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    private UUID getCurrentUserId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getPrincipal())) {
+            return UUID.fromString((String) authentication.getPrincipal());
+        }
+        throw new RuntimeException("Usuário não autenticado");
     }
 
     @GetMapping("/report")

@@ -14,6 +14,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CheckoutShippingRequestDto {
     private String zipCode;
+    private Integer shippingServiceId;
     private List<CartItemInput> items;
 
     @Data

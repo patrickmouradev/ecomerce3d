@@ -14,7 +14,8 @@ pipeline {
         DB_PASSWORD               = credentials('LOJA_DB_PASSWORD')
         CRYPT_SECRET_KEY          = credentials('LOJA_CRYPT_SECRET_KEY')
         ADMIN_FIRST_EMAIL         = credentials('LOJA_ADMIN_FIRST_EMAIL')
-        CORREIOS_API_URL          = credentials('LOJA_CORREIOS_API_URL')
+        MELHOR_ENVIO_API_URL      = credentials('LOJA_MELHOR_ENVIO_API_URL')
+        MELHOR_ENVIO_TOKEN        = credentials('LOJA_MELHOR_ENVIO_TOKEN')
         MERCADO_PAGO_PUBLIC_KEY   = credentials('LOJA_MERCADO_PAGO_PUBLIC_KEY')
         MERCADO_PAGO_ACCESS_TOKEN = credentials('LOJA_MERCADO_PAGO_ACCESS_TOKEN')
 
@@ -103,7 +104,8 @@ pipeline {
                         -e DB_PASSWORD="${DB_PASSWORD}" \
                         -e CRYPT_SECRET_KEY="${CRYPT_SECRET_KEY}" \
                         -e ADMIN_FIRST_EMAIL="${ADMIN_FIRST_EMAIL}" \
-                        -e CORREIOS_API_URL="${CORREIOS_API_URL}" \
+                        -e MELHOR_ENVIO_API_URL="${MELHOR_ENVIO_API_URL}" \
+                        -e MELHOR_ENVIO_TOKEN="${MELHOR_ENVIO_TOKEN}" \
                         -e MERCADO_PAGO_PUBLIC_KEY="${MERCADO_PAGO_PUBLIC_KEY}" \
                         -e MERCADO_PAGO_ACCESS_TOKEN="${MERCADO_PAGO_ACCESS_TOKEN}" \
                         -e SERVER_PORT="${APP_PORT}" \

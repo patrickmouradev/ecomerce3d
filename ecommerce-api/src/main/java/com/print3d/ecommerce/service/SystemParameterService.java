@@ -131,12 +131,16 @@ public class SystemParameterService {
         String rawValue = parameter.getParamValue();
         String formattedValue = rawValue;
 
-        // Se for um valor numérico válido, formata como R$ 1.000,25 para exibição
-        try {
-            BigDecimal numericValue = new BigDecimal(rawValue);
-            formattedValue = CalculationUtils.formatCurrency(numericValue);
-        } catch (NumberFormatException e) {
-            // Não é um número simples (ex: URLs do CORS), mantém o valor bruto
+        // Se for um valor numérico válido (exceto CEP ou WhatsApp/Telefone), formata como R$ 1.000,25 para exibição
+        String descLower = parameter.getDescription() != null ? parameter.getDescription().toLowerCase() : "";
+        boolean isNonCurrencyNumber = descLower.contains("cep") || descLower.contains("whatsapp") || descLower.contains("telefone");
+        if (!isNonCurrencyNumber) {
+            try {
+                BigDecimal numericValue = new BigDecimal(rawValue);
+                formattedValue = CalculationUtils.formatCurrency(numericValue);
+            } catch (NumberFormatException e) {
+                // Não é um número simples (ex: URLs do CORS), mantém o valor bruto
+            }
         }
 
         return SystemParameterDto.builder()

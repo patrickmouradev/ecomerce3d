@@ -42,7 +42,7 @@ public class ReportService {
             // Mapeia para os DTOs do relatório
             List<SalesReportRowDto> reportData = orders.stream()
                     .map(o -> SalesReportRowDto.builder()
-                            .orderId(o.getId().toString())
+                            .orderId(o.getOrderNumber() != null ? String.valueOf(o.getOrderNumber()) : o.getId().toString())
                             .clientName(o.getUser().getName())
                             .status(o.getStatus())
                             .totalAmount(o.getTotalAmount().doubleValue())

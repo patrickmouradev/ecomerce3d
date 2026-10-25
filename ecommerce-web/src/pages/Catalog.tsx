@@ -522,13 +522,13 @@ const ProductDetailModal: React.FC<{
           </button>
         </div>
 
-        {/* Corpo do Modal em 2 Colunas */}
+        {/* Corpo do Modal em 2 Colunas Responsivo */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-            gap: '2rem',
-            padding: '1.75rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+            gap: '1.5rem',
+            padding: 'clamp(1rem, 3vw, 1.75rem)',
             overflowY: 'auto'
           }}
         >
@@ -542,7 +542,7 @@ const ProductDetailModal: React.FC<{
               }}
               style={{
                 position: 'relative',
-                height: '380px',
+                height: 'clamp(230px, 45vw, 380px)',
                 borderRadius: 'var(--radius-md)',
                 overflow: 'hidden',
                 background: '#090a0d',
@@ -745,8 +745,8 @@ const ProductDetailModal: React.FC<{
                     {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </span>
                 </div>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginLeft: 'auto' }}>
-                  À vista ou parcelado
+                <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600, marginLeft: 'auto' }}>
+                  Pagamento via PIX
                 </span>
               </div>
             </div>
@@ -963,7 +963,7 @@ const ProductDetailModal: React.FC<{
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
                 gap: '0.75rem',
                 borderTop: '1px solid var(--border-color)',
                 paddingTop: '1rem',
@@ -1327,25 +1327,29 @@ export const Catalog: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto', position: 'relative' }}>
+    <div className="page-container">
       {/* Toast de Notificação de Adição ao Carrinho */}
       {toastMessage && (
         <div
           style={{
             position: 'fixed',
-            bottom: '2rem',
-            right: '2rem',
+            bottom: '1rem',
+            right: '1rem',
+            left: '1rem',
+            maxWidth: '480px',
+            marginLeft: 'auto',
             background: 'rgba(16, 18, 22, 0.95)',
             border: '1px solid var(--success)',
             color: '#fff',
-            padding: '1rem 1.5rem',
+            padding: '0.85rem 1.15rem',
             borderRadius: 'var(--radius-md)',
             boxShadow: '0 10px 30px rgba(0, 255, 136, 0.25)',
             backdropFilter: 'blur(10px)',
             zIndex: 3000,
             display: 'flex',
             alignItems: 'center',
-            gap: '0.75rem',
+            flexWrap: 'wrap',
+            gap: '0.65rem',
             animation: 'fadeIn 0.3s ease'
           }}
         >
@@ -1389,38 +1393,17 @@ export const Catalog: React.FC = () => {
 
       {/* Banner de Destaque / Carrossel */}
       {banners.length > 0 && (
-        <div
-          style={{
-            position: 'relative',
-            height: '360px',
-            borderRadius: 'var(--radius-lg)',
-            overflow: 'hidden',
-            marginBottom: '3rem',
-            border: '1px solid var(--border-glow)',
-            background: '#08090c'
-          }}
-        >
+        <div className="hero-banner-container">
           {banners.map((banner, index) => {
             const isActive = index === activeBannerIndex;
             const isVideo = banner.imagePath?.toLowerCase().endsWith('.mp4');
             return (
               <div
                 key={banner.id}
+                className="hero-banner-slide"
                 style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
                   opacity: isActive ? 1 : 0,
-                  pointerEvents: isActive ? 'auto' : 'none',
-                  transition: 'opacity 0.8s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '2rem',
-                  padding: '2rem 4.5rem',
-                  overflow: 'hidden'
+                  pointerEvents: isActive ? 'auto' : 'none'
                 }}
               >
                 {/* Fundo ambientado com blur para preencher o banner sem distorcer a foto principal */}
@@ -1448,15 +1431,15 @@ export const Catalog: React.FC = () => {
                 />
 
                 {/* Conteúdo textual à esquerda */}
-                <div style={{ position: 'relative', zIndex: 2, flex: '1 1 50%', maxWidth: '580px' }}>
+                <div className="hero-banner-text">
                   <span
                     style={{
                       background: 'var(--primary-glow)',
                       border: '1px solid var(--primary)',
                       color: 'var(--primary)',
-                      padding: '0.25rem 0.75rem',
+                      padding: '0.22rem 0.65rem',
                       borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.8rem',
+                      fontSize: '0.75rem',
                       fontWeight: 700,
                       textTransform: 'uppercase',
                       display: 'inline-block'
@@ -1466,9 +1449,9 @@ export const Catalog: React.FC = () => {
                   </span>
                   <h1
                     style={{
-                      fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
+                      fontSize: 'clamp(1.35rem, 3vw, 2.5rem)',
                       color: '#fff',
-                      marginTop: '0.75rem',
+                      marginTop: '0.55rem',
                       fontFamily: 'var(--font-display)',
                       lineHeight: 1.15
                     }}
@@ -1477,7 +1460,7 @@ export const Catalog: React.FC = () => {
                   </h1>
                   <button
                     className="btn btn-primary"
-                    style={{ marginTop: '1.25rem' }}
+                    style={{ marginTop: '0.9rem', padding: '0.65rem 1.25rem', fontSize: '0.9rem' }}
                     onClick={() => {
                       const found = products.find((p) => p.id === banner.productId);
                       if (found) handleOpenDetails(found);
@@ -1487,18 +1470,8 @@ export const Catalog: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Imagem / Vídeo proporcional à direita */}
-                <div
-                  style={{
-                    position: 'relative',
-                    zIndex: 2,
-                    flex: '0 1 420px',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
+                {/* Imagem / Vídeo proporcional */}
+                <div className="hero-banner-media">
                   {isVideo ? (
                     <video
                       src={banner.imagePath}
@@ -1506,31 +1479,11 @@ export const Catalog: React.FC = () => {
                       loop
                       muted
                       playsInline
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '300px',
-                        width: 'auto',
-                        height: 'auto',
-                        objectFit: 'contain',
-                        borderRadius: 'var(--radius-md)',
-                        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)'
-                      }}
                     />
                   ) : (
                     <img
                       src={banner.imagePath}
                       alt={banner.title}
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '300px',
-                        width: 'auto',
-                        height: 'auto',
-                        objectFit: 'contain',
-                        borderRadius: 'var(--radius-md)',
-                        boxShadow: '0 16px 40px rgba(0, 0, 0, 0.65)',
-                        border: '1px solid rgba(255, 255, 255, 0.1)'
-                      }}
                     />
                   )}
                 </div>
@@ -1545,14 +1498,14 @@ export const Catalog: React.FC = () => {
                 onClick={() => setActiveBannerIndex((activeBannerIndex - 1 + banners.length) % banners.length)}
                 style={{
                   position: 'absolute',
-                  left: '1rem',
+                  left: '0.5rem',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  background: 'rgba(16,18,22,0.6)',
+                  background: 'rgba(16,18,22,0.75)',
                   border: '1px solid var(--border-color)',
                   color: '#fff',
-                  width: '40px',
-                  height: '40px',
+                  width: '36px',
+                  height: '36px',
                   borderRadius: '50%',
                   cursor: 'pointer',
                   display: 'flex',
@@ -1561,20 +1514,20 @@ export const Catalog: React.FC = () => {
                   zIndex: 3
                 }}
               >
-                <ChevronLeft size={20} />
+                <ChevronLeft size={18} />
               </button>
               <button
                 onClick={() => setActiveBannerIndex((activeBannerIndex + 1) % banners.length)}
                 style={{
                   position: 'absolute',
-                  right: '1rem',
+                  right: '0.5rem',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  background: 'rgba(16,18,22,0.6)',
+                  background: 'rgba(16,18,22,0.75)',
                   border: '1px solid var(--border-color)',
                   color: '#fff',
-                  width: '40px',
-                  height: '40px',
+                  width: '36px',
+                  height: '36px',
                   borderRadius: '50%',
                   cursor: 'pointer',
                   display: 'flex',
@@ -1583,7 +1536,7 @@ export const Catalog: React.FC = () => {
                   zIndex: 3
                 }}
               >
-                <ChevronRight size={20} />
+                <ChevronRight size={18} />
               </button>
             </>
           )}
@@ -1597,16 +1550,16 @@ export const Catalog: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '1.5rem',
-          marginBottom: '2rem',
+          gap: '1rem',
+          marginBottom: '1.5rem',
           borderBottom: '1px solid var(--border-color)',
-          paddingBottom: '1.5rem'
+          paddingBottom: '1.25rem'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <h2 style={{ fontSize: '1.75rem', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <h2 style={{ fontSize: 'clamp(1.35rem, 4vw, 1.75rem)', fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span>Catálogo de Peças 3D</span>
-            <span style={{ fontSize: '1rem', color: 'var(--primary)', fontWeight: 500 }}>({products.length} disponíveis)</span>
+            <span style={{ fontSize: '0.92rem', color: 'var(--primary)', fontWeight: 500 }}>({products.length} disponíveis)</span>
           </h2>
 
           {cartCount > 0 && (
@@ -1635,9 +1588,9 @@ export const Catalog: React.FC = () => {
         </div>
 
         {/* Controles de Busca e Filtro */}
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', width: '100%', maxWidth: '600px' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', width: '100%', maxWidth: '600px' }}>
           {/* Busca por texto */}
-          <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+          <div style={{ position: 'relative', flex: '1 1 220px' }}>
             <input
               type="text"
               placeholder="Buscar peça por nome ou descrição..."
@@ -1650,8 +1603,8 @@ export const Catalog: React.FC = () => {
           </div>
 
           {/* Ordenação */}
-          <div style={{ position: 'relative', minWidth: '200px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <ArrowUpDown size={16} style={{ color: 'var(--primary)' }} />
+          <div style={{ position: 'relative', flex: '1 1 180px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <ArrowUpDown size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
             <select onChange={handleSortChange} className="form-input" style={{ paddingRight: '2rem' }}>
               <option value="name_asc">Descrição (A-Z)</option>
               <option value="price_desc">Maior Valor</option>
@@ -1668,8 +1621,8 @@ export const Catalog: React.FC = () => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '2rem'
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 270px), 1fr))',
+            gap: '1.5rem'
           }}
         >
           {products.map((product) => (

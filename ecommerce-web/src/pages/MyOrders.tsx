@@ -2,17 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import OrderChatBox from '../components/OrderChatBox';
 import {
   Package,
   Clock,
   CheckCircle,
   Truck,
-  QrCode,
-  Copy,
-  Check,
+  MessageSquare,
   RefreshCw,
   ArrowLeft,
-  Sparkles,
   X
 } from 'lucide-react';
 
@@ -25,15 +23,13 @@ interface OrderItem {
 
 interface Order {
   id: string;
+  orderNumber?: number;
+  clientName?: string;
   status: string;
   paymentMethod: string;
   shippingCost: number;
   totalAmount: number;
-  mercadoPagoPaymentId: string;
   trackingCode: string;
-  pixQrCode?: string;
-  pixQrCodeBase64?: string;
-  simulatedPayment?: boolean;
   createdAt: string;
   items: OrderItem[];
 }
@@ -44,9 +40,8 @@ export const MyOrders: React.FC = () => {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPixOrder, setSelectedPixOrder] = useState<Order | null>(null);
-  const [copiedPix, setCopiedPix] = useState(false);
-  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [selectedChatOrder, setSelectedChatOrder] = useState<Order | null>(null);
+  const [whatsappNumber, setWhatsappNumber] = useState<string>('');
 
   useEffect(() => {
     if (!user) {
@@ -54,7 +49,19 @@ export const MyOrders: React.FC = () => {
       return;
     }
     fetchMyOrders();
+    fetchConfig();
   }, [user]);
+
+  const fetchConfig = async () => {
+    try {
+      const res = await api.get('/api/checkout/config');
+      if (res.data?.whatsappNumber) {
+        setWhatsappNumber(res.data.whatsappNumber);
+      }
+    } catch {
+      // Ignore
+    }
+  };
 
   const fetchMyOrders = async () => {
     setLoading(true);
@@ -68,42 +75,8 @@ export const MyOrders: React.FC = () => {
     }
   };
 
-  const handleCheckStatus = async (orderId: string) => {
-    setCheckingId(orderId);
-    try {
-      const res = await api.get(`/api/checkout/orders/${orderId}/status`);
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? res.data : o)));
-      if (selectedPixOrder?.id === orderId) {
-        setSelectedPixOrder(res.data);
-      }
-    } catch (e) {
-      console.error('Erro ao atualizar status do pedido', e);
-    } finally {
-      setCheckingId(null);
-    }
-  };
-
-  const handleSimulateApprove = async (orderId: string) => {
-    setCheckingId(orderId);
-    try {
-      const res = await api.post(`/api/checkout/orders/${orderId}/simulate-approve`);
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? res.data : o)));
-      setSelectedPixOrder(null);
-    } catch (e) {
-      console.error('Erro ao simular aprovação', e);
-    } finally {
-      setCheckingId(null);
-    }
-  };
-
-  const handleCopyPix = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedPix(true);
-    setTimeout(() => setCopiedPix(false), 3000);
-  };
-
   return (
-    <div style={{ padding: '2rem', maxWidth: '1050px', margin: '0 auto' }}>
+    <div className="page-container" style={{ maxWidth: '1050px' }}>
       <button
         onClick={() => navigate('/')}
         style={{
@@ -126,7 +99,7 @@ export const MyOrders: React.FC = () => {
         <div>
           <h1 style={{ fontSize: '1.85rem', fontFamily: 'var(--font-display)', color: '#fff' }}>Meus Pedidos</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            Acompanhe o status do pagamento, produção 3D e rastreio das suas peças
+            Acompanhe seus pedidos, converse com o vendedor para pagamento PIX e veja o rastreio Correios
           </p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={fetchMyOrders}>
@@ -151,7 +124,6 @@ export const MyOrders: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {orders.map((order) => {
             const isPaid = order.status === 'PAGO' || order.status === 'ENVIADO';
-            const isPending = order.status === 'PENDENTE';
             return (
               <div
                 key={order.id}
@@ -165,14 +137,14 @@ export const MyOrders: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1rem' }}>
                   <div>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                      PEDIDO #{order.id.substring(0, 8)}
+                      PEDIDO #{order.orderNumber || order.id.substring(0, 8)}
                     </span>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                      Realizado em {order.createdAt} • Meio: <strong>{order.paymentMethod?.toUpperCase() || 'MERCADO PAGO'}</strong>
+                      Realizado em {order.createdAt} • Pagamento: <strong>PIX</strong>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <span
                       style={{
                         display: 'inline-flex',
@@ -197,29 +169,15 @@ export const MyOrders: React.FC = () => {
                       {order.status}
                     </span>
 
-                    {isPending && order.pixQrCode && (
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}
-                        onClick={() => setSelectedPixOrder(order)}
-                      >
-                        <QrCode size={14} /> Pagar PIX
-                      </button>
-                    )}
-
-                    {isPending && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
-                        onClick={() => handleCheckStatus(order.id)}
-                        disabled={checkingId === order.id}
-                      >
-                        <RefreshCw size={13} className={checkingId === order.id ? 'animate-spin' : ''} />
-                        Verificar Pagamento
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem' }}
+                      onClick={() => setSelectedChatOrder(order)}
+                    >
+                      <MessageSquare size={15} />
+                      {order.status === 'PENDENTE' ? 'Abrir Chat / Receber PIX' : 'Abrir Chat com Vendedor'}
+                    </button>
                   </div>
                 </div>
 
@@ -238,7 +196,7 @@ export const MyOrders: React.FC = () => {
                 {/* Rodapé com Frete, Rastreio e Total */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.85rem', fontSize: '0.85rem' }}>
                   <div style={{ color: 'var(--text-secondary)' }}>
-                    Frete: <strong>{order.shippingCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                    Frete Correios: <strong>{order.shippingCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
                     {order.trackingCode && (
                       <span style={{ marginLeft: '1rem', color: 'var(--primary)' }}>
                         • Rastreio Correios: <strong>{order.trackingCode}</strong>
@@ -255,71 +213,36 @@ export const MyOrders: React.FC = () => {
         </div>
       )}
 
-      {/* Modal para Reabrir QR Code PIX Pendente */}
-      {selectedPixOrder && (
+      {/* Modal da Caixa de Diálogo (Chat PIX entre Comprador e Vendedor) */}
+      {selectedChatOrder && (
         <div
           className="modal-overlay"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedPixOrder(null);
+            if (e.target === e.currentTarget) setSelectedChatOrder(null);
           }}
         >
-          <div className="glass-panel" style={{ maxWidth: '480px', width: '100%', padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center', position: 'relative' }}>
-            <button
-              onClick={() => setSelectedPixOrder(null)}
-              style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
-            >
-              <X size={20} />
-            </button>
-
-            <h3 style={{ fontSize: '1.35rem', color: '#fff', marginBottom: '0.5rem' }}>
-              QR Code PIX — Pedido #{selectedPixOrder.id.substring(0, 8)}
-            </h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-              Valor: <strong style={{ color: 'var(--success)' }}>{selectedPixOrder.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
-            </p>
-
-            <div style={{ background: '#fff', padding: '1rem', borderRadius: 'var(--radius-md)', display: 'inline-block', marginBottom: '1.25rem' }}>
-              {selectedPixOrder.pixQrCodeBase64 ? (
-                <img
-                  src={`data:image/png;base64,${selectedPixOrder.pixQrCodeBase64}`}
-                  alt="QR Code PIX"
-                  style={{ width: '200px', height: '200px', display: 'block' }}
-                />
-              ) : (
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedPixOrder.pixQrCode || '3DPrintPNG')}`}
-                  alt="QR Code PIX"
-                  style={{ width: '200px', height: '200px', display: 'block' }}
-                />
-              )}
+          <div style={{ maxWidth: '720px', width: '100%', position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+              <button
+                onClick={() => setSelectedChatOrder(null)}
+                className="btn btn-secondary"
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
+              >
+                <X size={15} /> Fechar Chat
+              </button>
             </div>
 
-            {selectedPixOrder.pixQrCode && (
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-                <input
-                  type="text"
-                  readOnly
-                  value={selectedPixOrder.pixQrCode}
-                  className="form-input"
-                  style={{ flex: 1, fontSize: '0.78rem', fontFamily: 'monospace' }}
-                />
-                <button type="button" className="btn btn-primary" onClick={() => handleCopyPix(selectedPixOrder.pixQrCode!)}>
-                  {copiedPix ? <Check size={15} /> : <Copy size={15} />}
-                  {copiedPix ? 'Copiado' : 'Copiar'}
-                </button>
-              </div>
-            )}
-
-            {selectedPixOrder.simulatedPayment && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ width: '100%', marginTop: '0.5rem', borderColor: 'var(--success)', color: 'var(--success)' }}
-                onClick={() => handleSimulateApprove(selectedPixOrder.id)}
-              >
-                <Sparkles size={15} /> Simular Pagamento PIX Aprovado
-              </button>
-            )}
+            <OrderChatBox
+              orderId={selectedChatOrder.id}
+              orderNumber={selectedChatOrder.orderNumber}
+              orderTotal={selectedChatOrder.totalAmount}
+              orderStatus={selectedChatOrder.status}
+              shippingCost={selectedChatOrder.shippingCost}
+              itemsSummary={selectedChatOrder.items?.map((i) => `${i.quantity}x ${i.productName}`).join(', ')}
+              clientName={selectedChatOrder.clientName || user?.name}
+              whatsappNumber={whatsappNumber}
+              mode="buyer"
+            />
           </div>
         </div>
       )}

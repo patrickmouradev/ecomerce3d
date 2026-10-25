@@ -19,6 +19,7 @@ public class CheckoutProcessRequestDto {
     private String cpf;
     private String phone;
     private AddressDto address;
+    private Integer shippingServiceId; // ID do serviço selecionado no Melhor Envio (ex: 1=PAC, 2=SEDEX, 3=Jadlog)
 
     // Dados provenientes do Mercado Pago Payment Brick (onSubmit)
     private String paymentMethodId; // "pix", "visa", "master", etc.

@@ -14,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 public class OrderResponseDto {
     private String id;
+    private Long orderNumber;
     private String clientName;
     private String clientEmail;
     private String customerPhone;

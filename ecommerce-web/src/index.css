@@ -327,3 +327,179 @@ a {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* -----------------------------------------------------------------------------
+   Responsive Utilities & Mobile Layout (iPhone 15 / 390px-430px & Tablets)
+   ----------------------------------------------------------------------------- */
+.page-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.checkout-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.address-street-col {
+  grid-column: span 2;
+}
+
+.hero-banner-container {
+  position: relative;
+  height: 360px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 3rem;
+  border: 1px solid var(--border-glow);
+  background: #08090c;
+}
+
+.hero-banner-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.8s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 2rem 4.5rem;
+  overflow: hidden;
+}
+
+.hero-banner-text {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 50%;
+  max-width: 580px;
+}
+
+.hero-banner-media {
+  position: relative;
+  z-index: 2;
+  flex: 0 1 420px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-banner-media img,
+.hero-banner-media video {
+  max-width: 100%;
+  max-height: 300px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cart-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+}
+
+.header-desktop-nav {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.header-desktop-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.header-mobile-actions {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .header-desktop-nav,
+  .header-desktop-actions {
+    display: none !important;
+  }
+
+  .header-mobile-actions {
+    display: flex !important;
+  }
+
+  .page-container {
+    padding: 1rem !important;
+  }
+
+  .checkout-stepper {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  .address-street-col {
+    grid-column: span 1 !important;
+  }
+
+  .hero-banner-container {
+    height: 400px !important;
+    margin-bottom: 1.75rem !important;
+  }
+
+  .hero-banner-slide {
+    flex-direction: column-reverse !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 1.25rem 2.75rem !important;
+    gap: 0.85rem !important;
+  }
+
+  .hero-banner-text {
+    flex: 0 0 auto !important;
+    max-width: 100% !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .hero-banner-media {
+    flex: 0 1 175px !important;
+    height: 175px !important;
+    width: 100% !important;
+  }
+
+  .hero-banner-media img,
+  .hero-banner-media video {
+    max-height: 165px !important;
+  }
+
+  .cart-item-row {
+    flex-wrap: wrap !important;
+  }
+
+  .modal-overlay {
+    padding: 0.65rem !important;
+  }
+
+  .product-detail-modal {
+    max-height: 94vh !important;
+  }
+}

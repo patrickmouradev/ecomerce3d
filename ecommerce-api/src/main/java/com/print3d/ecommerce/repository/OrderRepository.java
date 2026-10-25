@@ -23,4 +23,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     @Query("SELECT COUNT(oi) > 0 FROM OrderItem oi WHERE oi.product.id = :productId")
     boolean existsSalesByProductId(@Param("productId") UUID productId);
+
+    @Query(value = "SELECT nextval('seq_order_number')", nativeQuery = true)
+    Long getNextOrderNumber();
 }

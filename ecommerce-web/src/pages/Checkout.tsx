@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import OrderChatBox from '../components/OrderChatBox';
 import {
   ShoppingCart,
   Trash2,
@@ -9,27 +10,17 @@ import {
   Minus,
   Truck,
   MapPin,
-  CreditCard,
   QrCode,
   CheckCircle,
-  Copy,
-  Check,
   ArrowLeft,
   ArrowRight,
-  Loader,
   AlertCircle,
   User as UserIcon,
+  Mail,
   Phone,
   FileText,
-  Sparkles,
-  RefreshCw
+  MessageSquare
 } from 'lucide-react';
-
-declare global {
-  interface Window {
-    MercadoPago?: any;
-  }
-}
 
 interface CartItem {
   id: string;
@@ -50,17 +41,24 @@ interface AddressData {
   phone?: string;
 }
 
+interface ShippingOption {
+  id: number;
+  nome: string;
+  transportadora: string;
+  logoUrl?: string;
+  valor: number;
+  prazoDias: number;
+}
+
 interface OrderResult {
   id: string;
+  orderNumber?: number;
+  clientName?: string;
   status: string;
   paymentMethod: string;
   paymentStatusDetail: string;
   shippingCost: number;
   totalAmount: number;
-  mercadoPagoPaymentId: string;
-  pixQrCode?: string;
-  pixQrCodeBase64?: string;
-  simulatedPayment?: boolean;
   createdAt: string;
   items: {
     id: string;
@@ -74,14 +72,15 @@ export const Checkout: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Etapas: 1 = Carrinho & Frete, 2 = Dados do Cliente & Endereço, 3 = Pagamento (Payment Brick), 4 = Conclusão / PIX
+  // Etapas: 1 = Carrinho & Frete (Correios), 2 = Dados & Endereço, 3 = Revisão & PIX, 4 = Chat do Pedido (PIX)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Carrinho
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // Dados do Cliente (Opção A: coletados no checkout e salvos no perfil)
+  // Dados do Cliente
   const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState<AddressData>({
@@ -94,39 +93,31 @@ export const Checkout: React.FC = () => {
     federalUnit: ''
   });
 
-  // Frete
+  // Frete (Melhor Envio - somente Correios ou Retirar com Comprador)
   const [shippingCost, setShippingCost] = useState<number | null>(null);
-  const [shippingDays, setShippingDays] = useState<number | null>(null);
+  const [shippingServiceId, setShippingServiceId] = useState<number | null>(null);
+  const [shippingServiceName, setShippingServiceName] = useState<string>('Correios');
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [calculatingShipping, setCalculatingShipping] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
 
-  // Configuração Mercado Pago
-  const [mpPublicKey, setMpPublicKey] = useState<string>('');
-  const [realMpConfigured, setRealMpConfigured] = useState<boolean>(false);
-  const [brickReady, setBrickReady] = useState<boolean>(false);
-  const brickControllerRef = useRef<any>(null);
-
-  // Estado do Modo Simulador (quando chaves são TEST-XXXX)
-  const [simSelectedMethod, setSimSelectedMethod] = useState<'pix' | 'credit_card'>('pix');
-  const [simInstallments, setSimInstallments] = useState<number>(1);
+  // WhatsApp opcional da loja
+  const [whatsappNumber, setWhatsappNumber] = useState<string>('');
 
   // Processamento e Pedido Concluído
-  const [processingPayment, setProcessingPayment] = useState(false);
+  const [processingOrder, setProcessingOrder] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
-  const [copiedPix, setCopiedPix] = useState(false);
-  const [pollingStatus, setPollingStatus] = useState(false);
 
-  // 1. Carrega itens do carrinho e configuração do Mercado Pago
   useEffect(() => {
     loadCart();
-    fetchMpConfig();
+    fetchCheckoutConfig();
   }, []);
 
-  // 2. Se o usuário estiver logado, busca dados salvos no perfil (CPF, Telefone, Endereço)
   useEffect(() => {
     if (user) {
-      setCustomerName(user.name || '');
+      if (user.name) setCustomerName(user.name);
+      if (user.email) setCustomerEmail(user.email);
       fetchUserProfile();
     }
   }, [user]);
@@ -146,11 +137,12 @@ export const Checkout: React.FC = () => {
     window.dispatchEvent(new Event('cart_updated'));
   };
 
-  const fetchMpConfig = async () => {
+  const fetchCheckoutConfig = async () => {
     try {
       const res = await api.get('/api/checkout/config');
-      setMpPublicKey(res.data.publicKey || '');
-      setRealMpConfigured(Boolean(res.data.realCredentialsConfigured));
+      if (res.data?.whatsappNumber) {
+        setWhatsappNumber(res.data.whatsappNumber);
+      }
     } catch (e) {
       console.error('Erro ao carregar configuração de checkout', e);
     }
@@ -161,10 +153,11 @@ export const Checkout: React.FC = () => {
       const res = await api.get('/api/user/profile');
       const data = res.data;
       if (data.name) setCustomerName(data.name);
+      if (data.email) setCustomerEmail(data.email);
       if (data.cpf) setCpf(formatCpf(data.cpf));
       if (data.phone) setPhone(formatPhone(data.phone));
-      if (data.address) {
-        const zip = data.address.zipCode || '';
+      if (data.address && data.address.zipCode && data.address.zipCode.replace(/\D/g, '').length === 8) {
+        const zip = data.address.zipCode.replace(/\D/g, '');
         setAddress({
           zipCode: formatCep(zip),
           streetName: data.address.streetName || '',
@@ -174,16 +167,26 @@ export const Checkout: React.FC = () => {
           city: data.address.city || '',
           federalUnit: data.address.federalUnit || ''
         });
-        if (zip.replace(/\D/g, '').length === 8) {
-          handleCalculateShipping(zip);
+        const savedCart: CartItem[] = JSON.parse(localStorage.getItem('3dprintpng_cart') || '[]');
+        if (savedCart.length > 0) {
+          handleCalculateShipping(zip, savedCart, true);
         }
+      } else {
+        setAddress({
+          zipCode: '',
+          streetName: '',
+          streetNumber: '',
+          complement: '',
+          neighborhood: '',
+          city: '',
+          federalUnit: ''
+        });
       }
     } catch (e) {
       console.error('Erro ao buscar perfil salvo do cliente', e);
     }
   };
 
-  // Formatadores de máscara
   const formatCpf = (val: string) => {
     const digits = val.replace(/\D/g, '').slice(0, 14);
     if (digits.length <= 11) {
@@ -232,12 +235,27 @@ export const Checkout: React.FC = () => {
     saveCart(updated);
   };
 
-  // Cálculo de Frete
-  const handleCalculateShipping = async (zipCodeInput?: string, itemsOverride?: CartItem[]) => {
+  // Cálculo de Frete via Melhor Envio (exibindo somente Correios + Retirar com Comprador)
+  const handleCalculateShipping = async (
+    zipCodeInput?: string,
+    itemsOverride?: CartItem[],
+    silentValidation = false
+  ) => {
     const targetZip = (zipCodeInput ?? address.zipCode).replace(/\D/g, '');
-    const itemsToUse = itemsOverride ?? cartItems;
-    if (targetZip.length !== 8 || itemsToUse.length === 0) {
-      setErrorMessage('Informe um CEP válido de 8 dígitos para calcular o frete.');
+    const itemsToUse: CartItem[] =
+      itemsOverride ??
+      (cartItems.length > 0
+        ? cartItems
+        : JSON.parse(localStorage.getItem('3dprintpng_cart') || '[]'));
+
+    if (itemsToUse.length === 0) {
+      return;
+    }
+
+    if (targetZip.length !== 8) {
+      if (!silentValidation) {
+        setErrorMessage('Informe um CEP válido de 8 dígitos para calcular o frete dos Correios.');
+      }
       return;
     }
 
@@ -246,10 +264,34 @@ export const Checkout: React.FC = () => {
     try {
       const res = await api.post('/api/checkout/shipping', {
         zipCode: targetZip,
+        shippingServiceId: shippingServiceId ?? undefined,
         items: itemsToUse.map((i) => ({ productId: i.id, quantity: i.quantity }))
       });
-      setShippingCost(res.data.valorFrete);
-      setShippingDays(res.data.prazoEntregaDias);
+
+      const allOptions: ShippingOption[] = Array.isArray(res.data.opcoes) ? res.data.opcoes : [];
+      const correiosAndPickupOptions = allOptions.filter(
+        (opt) =>
+          (opt.transportadora || '').toLowerCase().includes('correios') ||
+          opt.id === 0 ||
+          (opt.nome || '').toLowerCase().includes('retirar')
+      );
+      const finalOptions = correiosAndPickupOptions.length > 0 ? correiosAndPickupOptions : allOptions;
+
+      setShippingOptions(finalOptions);
+
+      if (finalOptions.length > 0) {
+        const chosen =
+          finalOptions.find((o) => o.id === shippingServiceId) || finalOptions[0];
+        setShippingCost(chosen.valor);
+        setShippingServiceId(chosen.id);
+        setShippingServiceName(
+          chosen.id === 0 ? chosen.nome : `${chosen.transportadora} (${chosen.nome})`
+        );
+      } else {
+        setShippingCost(res.data.valorFrete);
+        setShippingServiceId(res.data.servicoId ?? null);
+        setShippingServiceName(res.data.servicoNome || 'Correios');
+      }
     } catch (e: any) {
       setErrorMessage(e.response?.data?.message || 'Não foi possível calcular o frete para este CEP.');
     } finally {
@@ -257,15 +299,24 @@ export const Checkout: React.FC = () => {
     }
   };
 
-  // Busca automática de endereço via ViaCEP ao preencher 8 dígitos
+  const handleSelectShippingOption = (option: ShippingOption) => {
+    setErrorMessage(null);
+    setShippingServiceId(option.id);
+    setShippingServiceName(
+      option.id === 0 ? option.nome : `${option.transportadora} (${option.nome})`
+    );
+    setShippingCost(option.valor);
+  };
+
   const handleCepChange = async (rawVal: string) => {
     const formatted = formatCep(rawVal);
     setAddress((prev) => ({ ...prev, zipCode: formatted }));
+    setErrorMessage(null);
 
     const digits = rawVal.replace(/\D/g, '');
     if (digits.length === 8) {
       setLoadingCep(true);
-      handleCalculateShipping(digits);
+      handleCalculateShipping(digits, undefined, true);
       try {
         const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
         const data = await response.json();
@@ -290,8 +341,7 @@ export const Checkout: React.FC = () => {
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const totalAmount = subtotal + (shippingCost ?? 0);
 
-  // Validação da Etapa 1 -> Etapa 2
-  const handleProceedToStep2 = () => {
+  const handleProceedToStep2 = async () => {
     if (cartItems.length === 0) return;
     if (!user) {
       navigate('/login?redirect=/checkout');
@@ -299,9 +349,9 @@ export const Checkout: React.FC = () => {
     }
     if (shippingCost === null) {
       if (address.zipCode.replace(/\D/g, '').length === 8) {
-        handleCalculateShipping(address.zipCode);
+        await handleCalculateShipping(address.zipCode, cartItems, false);
       } else {
-        setErrorMessage('Informe seu CEP e calcule o frete antes de avançar.');
+        setErrorMessage('Informe seu CEP e calcule o frete dos Correios (ou selecione Retirar com Comprador) antes de avançar.');
         return;
       }
     }
@@ -309,7 +359,6 @@ export const Checkout: React.FC = () => {
     setStep(2);
   };
 
-  // Validação da Etapa 2 -> Etapa 3 (Salva dados do cliente e abre o Payment Brick)
   const handleProceedToStep3 = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -320,6 +369,11 @@ export const Checkout: React.FC = () => {
 
     if (!customerName.trim() || customerName.trim().length < 3) {
       setErrorMessage('Informe seu nome completo.');
+      return;
+    }
+    const resolvedEmail = (customerEmail || user?.email || '').trim();
+    if (!resolvedEmail || !resolvedEmail.includes('@')) {
+      setErrorMessage('Informe um e-mail válido para acompanhamento do pedido.');
       return;
     }
     if (cleanCpf.length !== 11 && cleanCpf.length !== 14) {
@@ -343,7 +397,6 @@ export const Checkout: React.FC = () => {
     }
 
     try {
-      // Salva no perfil do usuário para que nas próximas compras já venha preenchido
       await api.put('/api/user/profile', {
         name: customerName.trim(),
         cpf: cleanCpf,
@@ -365,142 +418,9 @@ export const Checkout: React.FC = () => {
     }
   };
 
-  // 3. Monta o Mercado Pago Payment Brick oficial na Etapa 3 (somente PIX e Cartão de Crédito)
-  useEffect(() => {
-    if (step !== 3 || !realMpConfigured || !mpPublicKey) {
-      return;
-    }
-
-    let isMounted = true;
-    setBrickReady(false);
-
-    const initBrick = async () => {
-      // Garante que o script do SDK v2 do Mercado Pago está carregado
-      if (!window.MercadoPago) {
-        await new Promise<void>((resolve, reject) => {
-          const existingScript = document.querySelector('script[src="https://sdk.mercadopago.com/js/v2"]');
-          if (existingScript) {
-            existingScript.addEventListener('load', () => resolve());
-            existingScript.addEventListener('error', () => reject(new Error('Falha ao carregar SDK Mercado Pago')));
-          } else {
-            const script = document.createElement('script');
-            script.src = 'https://sdk.mercadopago.com/js/v2';
-            script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Falha ao carregar SDK Mercado Pago'));
-            document.body.appendChild(script);
-          }
-        });
-      }
-
-      if (!isMounted || !window.MercadoPago) return;
-
-      if (brickControllerRef.current) {
-        try {
-          brickControllerRef.current.unmount();
-        } catch {
-          // Ignore unmount errors
-        }
-      }
-
-      const mp = new window.MercadoPago(mpPublicKey, { locale: 'pt-BR' });
-      const bricksBuilder = mp.bricks();
-
-      const nameParts = customerName.trim().split(' ');
-      const firstName = nameParts[0] || customerName.trim();
-      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Cliente';
-      const cleanCpf = cpf.replace(/\D/g, '');
-
-      const settings = {
-        initialization: {
-          amount: Number(totalAmount.toFixed(2)),
-          payer: {
-            firstName,
-            lastName,
-            email: user?.email || '',
-            identification: {
-              type: cleanCpf.length > 11 ? 'CNPJ' : 'CPF',
-              number: cleanCpf
-            },
-            address: {
-              zipCode: address.zipCode.replace(/\D/g, ''),
-              streetName: address.streetName,
-              streetNumber: address.streetNumber,
-              neighborhood: address.neighborhood,
-              city: address.city,
-              federalUnit: address.federalUnit
-            }
-          }
-        },
-        customization: {
-          visual: {
-            style: {
-              theme: 'dark'
-            }
-          },
-          paymentMethods: {
-            creditCard: 'all',
-            bankTransfer: 'all', // PIX habilitado
-            maxInstallments: 12
-          }
-        },
-        callbacks: {
-          onReady: () => {
-            if (isMounted) setBrickReady(true);
-          },
-          onSubmit: ({ formData }: any) => {
-            return new Promise<void>((resolve, reject) => {
-              submitOrderToBackend({
-                paymentMethodId: formData.payment_method_id,
-                token: formData.token,
-                issuerId: formData.issuer_id ? String(formData.issuer_id) : undefined,
-                installments: formData.installments || 1,
-                payerEmail: formData.payer?.email || user?.email,
-                payerIdentificationType: formData.payer?.identification?.type || 'CPF',
-                payerIdentificationNumber: formData.payer?.identification?.number || cleanCpf
-              })
-                .then(() => resolve())
-                .catch((err) => reject(err));
-            });
-          },
-          onError: (error: any) => {
-            console.error('Erro no Payment Brick:', error);
-            setErrorMessage('Ocorreu um erro ao carregar ou validar o formulário do Mercado Pago.');
-          }
-        }
-      };
-
-      brickControllerRef.current = await bricksBuilder.create('payment', 'paymentBrick_container', settings);
-    };
-
-    initBrick().catch((err) => {
-      console.error(err);
-      setErrorMessage('Não foi possível inicializar o componente do Mercado Pago. Verifique sua Public Key.');
-    });
-
-    return () => {
-      isMounted = false;
-      if (brickControllerRef.current) {
-        try {
-          brickControllerRef.current.unmount();
-        } catch {
-          // Ignore
-        }
-      }
-    };
-  }, [step, realMpConfigured, mpPublicKey]);
-
-  // Envia o pedido e os dados de pagamento para o Back-end
-  const submitOrderToBackend = async (paymentPayload: {
-    paymentMethodId: string;
-    token?: string;
-    issuerId?: string;
-    installments?: number;
-    payerEmail?: string;
-    payerIdentificationType?: string;
-    payerIdentificationNumber?: string;
-  }) => {
-    setProcessingPayment(true);
+  // Finaliza o Pedido (somente PIX via Chat com o Vendedor)
+  const handleFinalizeOrderPixChat = async () => {
+    setProcessingOrder(true);
     setErrorMessage(null);
     try {
       const response = await api.post('/api/checkout/process', {
@@ -513,25 +433,26 @@ export const Checkout: React.FC = () => {
           zipCode: address.zipCode.replace(/\D/g, ''),
           federalUnit: address.federalUnit.trim().toUpperCase()
         },
-        ...paymentPayload
+        shippingServiceId: shippingServiceId ?? undefined,
+        paymentMethodId: 'pix_chat',
+        payerEmail: customerEmail || user?.email
       });
 
       const createdOrder: OrderResult = response.data;
       setOrderResult(createdOrder);
 
-      // Limpa o carrinho após registrar o pedido com sucesso
+      // Limpa o carrinho e abre o Chat com o Vendedor na Etapa 4
       saveCart([]);
       setStep(4);
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'Falha ao processar o pagamento. Verifique os dados informados.';
+      const msg = err.response?.data?.message || 'Falha ao registrar o pedido. Verifique os dados informados.';
       setErrorMessage(msg);
-      throw err;
     } finally {
-      setProcessingPayment(false);
+      setProcessingOrder(false);
     }
   };
 
-  // Polling automático a cada 5 segundos quando o pedido está PENDENTE via PIX
+  // Polling leve do status do pedido na Etapa 4 (caso o vendedor marque como PAGO enquanto o cliente está no chat)
   useEffect(() => {
     if (step !== 4 || !orderResult || orderResult.status !== 'PENDENTE') {
       return;
@@ -539,43 +460,20 @@ export const Checkout: React.FC = () => {
 
     const interval = setInterval(async () => {
       try {
-        setPollingStatus(true);
         const res = await api.get(`/api/checkout/orders/${orderResult.id}/status`);
         if (res.data && res.data.status !== orderResult.status) {
           setOrderResult(res.data);
         }
-      } catch (e) {
-        console.warn('Polling de status PIX falhou:', e);
-      } finally {
-        setPollingStatus(false);
+      } catch {
+        // Ignora falha silenciosa
       }
     }, 5000);
 
     return () => clearInterval(interval);
   }, [step, orderResult]);
 
-  const handleCopyPix = () => {
-    if (!orderResult?.pixQrCode) return;
-    navigator.clipboard.writeText(orderResult.pixQrCode);
-    setCopiedPix(true);
-    setTimeout(() => setCopiedPix(false), 3000);
-  };
-
-  const handleSimulatePixApproval = async () => {
-    if (!orderResult) return;
-    try {
-      setPollingStatus(true);
-      const res = await api.post(`/api/checkout/orders/${orderResult.id}/simulate-approve`);
-      setOrderResult(res.data);
-    } catch (e) {
-      console.error('Erro ao simular aprovação PIX', e);
-    } finally {
-      setPollingStatus(false);
-    }
-  };
-
   return (
-    <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
+    <div className="page-container" style={{ maxWidth: '1100px' }}>
       {/* Cabeçalho do Checkout e Stepper */}
       <div style={{ marginBottom: '2rem' }}>
         <button
@@ -596,23 +494,17 @@ export const Checkout: React.FC = () => {
           {step > 1 && step < 4 ? 'Voltar para etapa anterior' : 'Voltar ao Catálogo'}
         </button>
 
-        <h1 style={{ fontSize: '2rem', fontFamily: 'var(--font-display)', color: '#fff', marginBottom: '1.25rem' }}>
+        <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontFamily: 'var(--font-display)', color: '#fff', marginBottom: '1.25rem' }}>
           Finalizar Compra
         </h1>
 
         {/* Barra de Progresso das Etapas */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '0.75rem'
-          }}
-        >
+        <div className="checkout-stepper">
           {[
             { num: 1, label: '1. Carrinho & Frete' },
             { num: 2, label: '2. Dados & Entrega' },
-            { num: 3, label: '3. Pagamento (MP)' },
-            { num: 4, label: '4. Confirmação' }
+            { num: 3, label: '3. Pagamento (PIX)' },
+            { num: 4, label: '4. Chat & PIX' }
           ].map((item) => {
             const active = step === item.num;
             const completed = step > item.num;
@@ -664,12 +556,12 @@ export const Checkout: React.FC = () => {
       )}
 
       {/* =========================================================================
-          ETAPA 1: REVISÃO DO CARRINHO E CÁLCULO DE FRETE
+          ETAPA 1: REVISÃO DO CARRINHO E CÁLCULO DE FRETE (CORREIOS VIA MELHOR ENVIO)
          ========================================================================= */}
       {step === 1 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem' }}>
           {/* Lista de Produtos */}
-          <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
+          <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
             <h3 style={{ fontSize: '1.2rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <ShoppingCart size={20} style={{ color: 'var(--primary)' }} />
               Peças Selecionadas ({cartItems.reduce((a, b) => a + b.quantity, 0)})
@@ -688,16 +580,7 @@ export const Checkout: React.FC = () => {
                 {cartItems.map((item) => (
                   <div
                     key={item.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '1rem',
-                      padding: '1rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(255, 255, 255, 0.02)',
-                      border: '1px solid var(--border-color)'
-                    }}
+                    className="cart-item-row"
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
                       {item.image && !item.image.toLowerCase().endsWith('.mp4') ? (
@@ -795,18 +678,18 @@ export const Checkout: React.FC = () => {
             )}
           </div>
 
-          {/* Resumo & Simulador de Frete */}
+          {/* Resumo & Simulador de Frete Correios (Melhor Envio) */}
           {cartItems.length > 0 && (
             <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', height: 'fit-content' }}>
               <h3 style={{ fontSize: '1.2rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Truck size={20} style={{ color: 'var(--primary)' }} />
-                Entrega e Resumo
+                Frete Correios & Resumo
               </h3>
 
               {/* Simulador de CEP */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.4rem' }}>
-                  Calcular Frete (CEP de Destino)
+                  Calcular Frete Correios (CEP de Destino)
                 </label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <input
@@ -826,23 +709,95 @@ export const Checkout: React.FC = () => {
                     {calculatingShipping ? 'Calculando...' : 'Calcular'}
                   </button>
                 </div>
-                {shippingCost !== null && (
-                  <div
-                    style={{
-                      marginTop: '0.75rem',
-                      padding: '0.65rem 0.85rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(0, 240, 255, 0.07)',
-                      border: '1px solid rgba(0, 240, 255, 0.25)',
-                      fontSize: '0.85rem',
-                      display: 'flex',
-                      justifyContent: 'space-between'
-                    }}
-                  >
-                    <span>Correios (Prazo: até {shippingDays} dias úteis)</span>
-                    <strong style={{ color: 'var(--primary)' }}>
-                      {shippingCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </strong>
+
+                {shippingOptions.length > 0 ? (
+                  <div style={{ marginTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      Opções de Envio disponíveis:
+                    </span>
+                    {shippingOptions.map((opt) => {
+                      const isSelected = shippingServiceId === opt.id;
+                      const isPickup = opt.id === 0;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => handleSelectShippingOption(opt)}
+                          style={{
+                            padding: '0.65rem 0.85rem',
+                            borderRadius: 'var(--radius-sm)',
+                            background: isSelected ? 'rgba(0, 240, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                            border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                            color: '#fff',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 700, color: isSelected ? 'var(--primary)' : '#fff' }}>
+                              {isPickup ? opt.nome : `${opt.transportadora} — ${opt.nome}`}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {isPickup
+                                ? 'Retirada direta sem custo de envio'
+                                : `Prazo estimado: até ${opt.prazoDias} dias úteis`}
+                            </div>
+                          </div>
+                          <strong style={{ color: isSelected ? 'var(--primary)' : 'var(--success)' }}>
+                            {opt.valor === 0
+                              ? 'Grátis (R$ 0,00)'
+                              : opt.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </strong>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                      Ou selecione retirada direta:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleSelectShippingOption({
+                          id: 0,
+                          transportadora: 'Retirada',
+                          nome: 'Retirar com Comprador',
+                          valor: 0,
+                          prazoDias: 1
+                        })
+                      }
+                      style={{
+                        padding: '0.65rem 0.85rem',
+                        borderRadius: 'var(--radius-sm)',
+                        background: shippingServiceId === 0 ? 'rgba(0, 240, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                        border: shippingServiceId === 0 ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                        color: '#fff',
+                        fontSize: '0.85rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        textAlign: 'left'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, color: shippingServiceId === 0 ? 'var(--primary)' : '#fff' }}>
+                          Retirar com Comprador
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          Retirada direta sem custo de envio
+                        </div>
+                      </div>
+                      <strong style={{ color: shippingServiceId === 0 ? 'var(--primary)' : 'var(--success)' }}>
+                        Grátis (R$ 0,00)
+                      </strong>
+                    </button>
                   </div>
                 )}
               </div>
@@ -854,7 +809,7 @@ export const Checkout: React.FC = () => {
                   <span>{subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                  <span>Frete Estimado:</span>
+                  <span>Frete Correios:</span>
                   <span>
                     {shippingCost !== null
                       ? shippingCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -873,7 +828,7 @@ export const Checkout: React.FC = () => {
                     marginTop: '0.4rem'
                   }}
                 >
-                  <span>Total:</span>
+                  <span>Total (PIX):</span>
                   <span>{totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                 </div>
               </div>
@@ -905,16 +860,16 @@ export const Checkout: React.FC = () => {
           ETAPA 2: DADOS DO CLIENTE (CPF, TELEFONE) E ENDEREÇO DE ENTREGA
          ========================================================================= */}
       {step === 2 && (
-        <form onSubmit={handleProceedToStep3} className="glass-panel" style={{ padding: '2rem', borderRadius: 'var(--radius-md)' }}>
+        <form onSubmit={handleProceedToStep3} className="glass-panel" style={{ padding: 'clamp(1.25rem, 3vw, 2rem)', borderRadius: 'var(--radius-md)' }}>
           <h3 style={{ fontSize: '1.3rem', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <MapPin size={20} style={{ color: 'var(--primary)' }} />
-            Dados do Comprador e Endereço de Entrega
+            Dados do Comprador e Endereço de Entrega (Correios)
           </h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.75rem' }}>
-            Esses dados são exigidos pelo Mercado Pago para segurança antifraude (PIX e Cartão) e para o envio da sua encomenda 3D. Eles ficarão salvos para suas próximas compras.
+            Esses dados são utilizados para a emissão da etiqueta de envio pelos Correios e ficarão salvos para suas próximas compras.
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
             <div>
               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.35rem' }}>
                 <UserIcon size={14} style={{ color: 'var(--primary)' }} /> Nome Completo *
@@ -931,7 +886,21 @@ export const Checkout: React.FC = () => {
 
             <div>
               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.35rem' }}>
-                <FileText size={14} style={{ color: 'var(--primary)' }} /> CPF ou CNPJ (Obrigatório Mercado Pago) *
+                <Mail size={14} style={{ color: 'var(--primary)' }} /> E-mail do Comprador *
+              </label>
+              <input
+                type="email"
+                className="form-input"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                placeholder="cliente@email.com"
+                required
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.35rem' }}>
+                <FileText size={14} style={{ color: 'var(--primary)' }} /> CPF ou CNPJ *
               </label>
               <input
                 type="text"
@@ -975,7 +944,7 @@ export const Checkout: React.FC = () => {
               />
             </div>
 
-            <div style={{ gridColumn: 'span 2' }}>
+            <div className="address-street-col">
               <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>
                 Rua / Logradouro *
               </label>
@@ -1065,7 +1034,7 @@ export const Checkout: React.FC = () => {
               Voltar ao Carrinho
             </button>
             <button type="submit" className="btn btn-primary" style={{ padding: '0.85rem 2rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              Ir para o Pagamento ({totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+              Revisar e Ir para Pagamento PIX ({totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
               <ArrowRight size={18} />
             </button>
           </div>
@@ -1073,144 +1042,74 @@ export const Checkout: React.FC = () => {
       )}
 
       {/* =========================================================================
-          ETAPA 3: PAGAMENTO (MERCADO PAGO PAYMENT BRICK - PIX & CARTÃO DE CRÉDITO)
+          ETAPA 3: PAGAMENTO SOMENTE PIX (ATENDIMENTO E ENVIO DO PIX PELO CHAT)
          ========================================================================= */}
       {step === 3 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '1.5rem' }}>
           <div className="glass-panel" style={{ padding: '1.75rem', borderRadius: 'var(--radius-md)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
               <h3 style={{ fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <CreditCard size={20} style={{ color: 'var(--primary)' }} />
-                Pagamento Seguro — Mercado Pago
+                <QrCode size={22} style={{ color: 'var(--primary)' }} />
+                Pagamento via PIX
               </h3>
               <span
                 style={{
                   fontSize: '0.75rem',
-                  padding: '0.25rem 0.6rem',
+                  padding: '0.25rem 0.65rem',
                   borderRadius: '12px',
-                  background: 'rgba(0, 240, 255, 0.1)',
-                  color: 'var(--primary)',
+                  background: 'rgba(0, 255, 136, 0.12)',
+                  color: 'var(--success)',
+                  border: '1px solid rgba(0, 255, 136, 0.3)',
                   fontWeight: 700
                 }}
               >
-                PIX ou Cartão de Crédito
+                Somente PIX
               </span>
             </div>
 
-            {realMpConfigured ? (
-              <>
-                {!brickReady && (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem', gap: '1rem', color: 'var(--text-secondary)' }}>
-                    <Loader className="animate-spin" size={28} style={{ color: 'var(--primary)' }} />
-                    <span>Carregando Checkout Bricks oficial do Mercado Pago...</span>
-                  </div>
-                )}
-                {/* Contêiner oficial onde o Mercado Pago Payment Brick é renderizado */}
-                <div id="paymentBrick_container" />
-              </>
-            ) : (
-              /* Interface de Homologação Local quando MERCADO_PAGO_PUBLIC_KEY ainda está com placeholder TEST-XXXX */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                <div
-                  style={{
-                    padding: '0.85rem 1rem',
-                    borderRadius: 'var(--radius-sm)',
-                    background: 'rgba(255, 183, 0, 0.1)',
-                    border: '1px solid rgba(255, 183, 0, 0.35)',
-                    fontSize: '0.82rem',
-                    color: '#ffd166'
-                  }}
-                >
-                  <strong>Modo Homologação Ativo:</strong> Assim que você inserir sua <code>MERCADO_PAGO_PUBLIC_KEY</code> e <code>MERCADO_PAGO_ACCESS_TOKEN</code> reais no arquivo <code>.env</code>, o formulário oficial do Mercado Pago Payment Brick será carregado aqui automaticamente.
+            <div
+              style={{
+                padding: '1.25rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(0, 240, 255, 0.06)',
+                border: '1px solid rgba(0, 240, 255, 0.3)',
+                marginBottom: '1.5rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <MessageSquare size={24} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                <div style={{ fontWeight: 700, color: '#fff', fontSize: '1rem' }}>
+                  Atendimento Direto com o Vendedor (Caixa de Diálogo no Site)
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => setSimSelectedMethod('pix')}
-                    style={{
-                      padding: '1rem',
-                      borderRadius: 'var(--radius-sm)',
-                      border: simSelectedMethod === 'pix' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                      background: simSelectedMethod === 'pix' ? 'rgba(0, 240, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)',
-                      color: '#fff',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      fontWeight: 700
-                    }}
-                  >
-                    <QrCode size={24} style={{ color: 'var(--primary)' }} />
-                    PIX (Aprovação Imediata)
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSimSelectedMethod('credit_card')}
-                    style={{
-                      padding: '1rem',
-                      borderRadius: 'var(--radius-sm)',
-                      border: simSelectedMethod === 'credit_card' ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                      background: simSelectedMethod === 'credit_card' ? 'rgba(0, 240, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)',
-                      color: '#fff',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      fontWeight: 700
-                    }}
-                  >
-                    <CreditCard size={24} style={{ color: 'var(--primary)' }} />
-                    Cartão de Crédito
-                  </button>
-                </div>
-
-                {simSelectedMethod === 'credit_card' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', padding: '1rem', background: 'rgba(0,0,0,0.25)', borderRadius: 'var(--radius-sm)' }}>
-                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                      Parcelamento no Cartão
-                    </label>
-                    <select
-                      className="form-input"
-                      value={simInstallments}
-                      onChange={(e) => setSimInstallments(Number(e.target.value))}
-                    >
-                      {[1, 2, 3, 4, 5, 6].map((n) => (
-                        <option key={n} value={n}>
-                          {n}x de {(totalAmount / n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} sem juros
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={processingPayment}
-                  onClick={() =>
-                    submitOrderToBackend({
-                      paymentMethodId: simSelectedMethod === 'pix' ? 'pix' : 'master',
-                      token: simSelectedMethod === 'credit_card' ? 'sim-card-token' : undefined,
-                      installments: simSelectedMethod === 'credit_card' ? simInstallments : 1,
-                      payerEmail: user?.email,
-                      payerIdentificationType: cpf.replace(/\D/g, '').length > 11 ? 'CNPJ' : 'CPF',
-                      payerIdentificationNumber: cpf.replace(/\D/g, '')
-                    })
-                  }
-                  style={{ width: '100%', padding: '1rem', fontSize: '1.05rem', fontWeight: 700 }}
-                >
-                  {processingPayment
-                    ? 'Processando Pagamento...'
-                    : simSelectedMethod === 'pix'
-                    ? `Gerar QR Code PIX (${totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})`
-                    : `Pagar com Cartão (${totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})`}
-                </button>
               </div>
-            )}
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                Ao clicar em <strong>Finalizar Pedido</strong> abaixo, seu pedido será registrado com a opção de envio{' '}
+                <strong>{shippingServiceName}</strong> e abrirá imediatamente uma{' '}
+                <strong>caixa de diálogo (chat)</strong> direta com o vendedor para o envio da chave/código PIX.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={processingOrder}
+              onClick={handleFinalizeOrderPixChat}
+              style={{
+                width: '100%',
+                padding: '1rem',
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.6rem'
+              }}
+            >
+              <MessageSquare size={18} />
+              {processingOrder
+                ? 'Registrando Pedido...'
+                : `Finalizar Pedido e Abrir Chat PIX (${totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})`}
+            </button>
           </div>
 
           {/* Resumo Lateral de Conferência */}
@@ -1219,7 +1118,8 @@ export const Checkout: React.FC = () => {
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
               <div><strong>Cliente:</strong> {customerName}</div>
               <div><strong>CPF/CNPJ:</strong> {cpf}</div>
-              <div><strong>Entrega:</strong> {address.streetName}, {address.streetNumber} - {address.neighborhood}, {address.city}/{address.federalUnit} (CEP: {address.zipCode})</div>
+              <div><strong>Telefone:</strong> {phone}</div>
+              <div><strong>Entrega (Correios):</strong> {address.streetName}, {address.streetNumber} - {address.neighborhood}, {address.city}/{address.federalUnit} (CEP: {address.zipCode})</div>
             </div>
 
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1230,11 +1130,11 @@ export const Checkout: React.FC = () => {
                 </div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                <span>Frete (Correios):</span>
+                <span>Frete ({shippingServiceName}):</span>
                 <span>{(shippingCost ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', fontWeight: 800, color: 'var(--success)', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
-                <span>Total a Pagar:</span>
+                <span>Total via PIX:</span>
                 <span>{totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
               </div>
             </div>
@@ -1243,139 +1143,57 @@ export const Checkout: React.FC = () => {
       )}
 
       {/* =========================================================================
-          ETAPA 4: CONFIRMAÇÃO DO PEDIDO / TELA DE QR CODE PIX COM POLLING
+          ETAPA 4: CONFIRMAÇÃO DO PEDIDO + CAIXA DE DIÁLOGO (CHAT PIX COM VENDEDOR)
          ========================================================================= */}
       {step === 4 && orderResult && (
-        <div className="glass-panel" style={{ padding: '2.5rem', borderRadius: 'var(--radius-lg)', maxWidth: '680px', margin: '0 auto', textAlign: 'center' }}>
-          {orderResult.status === 'PAGO' ? (
-            <>
-              <div
-                style={{
-                  width: '72px',
-                  height: '72px',
-                  borderRadius: '50%',
-                  background: 'var(--success-glow)',
-                  color: 'var(--success)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 1.25rem'
-                }}
-              >
-                <CheckCircle size={40} />
-              </div>
-              <h2 style={{ fontSize: '1.8rem', color: '#fff', marginBottom: '0.5rem' }}>
-                Pagamento Aprovado!
-              </h2>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                Seu pedido <strong>#{orderResult.id.substring(0, 8)}</strong> foi confirmado e já entrou na fila de impressão 3D.
-              </p>
-            </>
-          ) : (
-            <>
-              <div
-                style={{
-                  width: '68px',
-                  height: '68px',
-                  borderRadius: '50%',
-                  background: 'rgba(0, 240, 255, 0.12)',
-                  color: 'var(--primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 1.25rem'
-                }}
-              >
-                <QrCode size={36} />
-              </div>
-              <h2 style={{ fontSize: '1.65rem', color: '#fff', marginBottom: '0.5rem' }}>
-                Escaneie o QR Code PIX para Pagar
-              </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                Pedido <strong>#{orderResult.id.substring(0, 8)}</strong> • Valor:{' '}
-                <strong style={{ color: 'var(--success)' }}>
-                  {orderResult.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </strong>
-              </p>
+        <div style={{ maxWidth: '780px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="glass-panel" style={{ padding: '1.75rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+            <div
+              style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: orderResult.status === 'PAGO' ? 'var(--success-glow)' : 'rgba(0, 240, 255, 0.12)',
+                color: orderResult.status === 'PAGO' ? 'var(--success)' : 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1rem'
+              }}
+            >
+              {orderResult.status === 'PAGO' ? <CheckCircle size={34} /> : <QrCode size={32} />}
+            </div>
 
-              {/* Imagem do QR Code PIX */}
-              <div
-                style={{
-                  background: '#fff',
-                  padding: '1.25rem',
-                  borderRadius: 'var(--radius-md)',
-                  display: 'inline-block',
-                  marginBottom: '1.25rem'
-                }}
-              >
-                {orderResult.pixQrCodeBase64 ? (
-                  <img
-                    src={`data:image/png;base64,${orderResult.pixQrCodeBase64}`}
-                    alt="QR Code PIX Mercado Pago"
-                    style={{ width: '220px', height: '220px', display: 'block' }}
-                  />
-                ) : (
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(orderResult.pixQrCode || '3DPrintPNG')}`}
-                    alt="QR Code PIX"
-                    style={{ width: '220px', height: '220px', display: 'block' }}
-                  />
-                )}
-              </div>
+            <h2 style={{ fontSize: '1.6rem', color: '#fff', marginBottom: '0.35rem' }}>
+              {orderResult.status === 'PAGO'
+                ? 'Pagamento PIX Confirmado!'
+                : `Pedido #${orderResult.orderNumber || orderResult.id.substring(0, 8)} Registrado!`}
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
+              Valor Total:{' '}
+              <strong style={{ color: 'var(--success)', fontSize: '1.05rem' }}>
+                {orderResult.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </strong>
+            </p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.35rem' }}>
+              Utilize a caixa de mensagens abaixo para receber a chave PIX do vendedor.
+            </p>
+          </div>
 
-              {/* PIX Copia e Cola */}
-              {orderResult.pixQrCode && (
-                <div style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '0.4rem' }}>
-                    Código PIX Copia e Cola:
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <input
-                      type="text"
-                      readOnly
-                      value={orderResult.pixQrCode}
-                      className="form-input"
-                      style={{ flex: 1, fontSize: '0.8rem', fontFamily: 'monospace' }}
-                    />
-                    <button type="button" className="btn btn-primary" onClick={handleCopyPix} style={{ whiteSpace: 'nowrap' }}>
-                      {copiedPix ? <Check size={16} /> : <Copy size={16} />}
-                      {copiedPix ? 'Copiado!' : 'Copiar PIX'}
-                    </button>
-                  </div>
-                </div>
-              )}
+          {/* Caixa de Diálogo / Chat entre Comprador e Vendedor */}
+          <OrderChatBox
+            orderId={orderResult.id}
+            orderNumber={orderResult.orderNumber}
+            orderTotal={orderResult.totalAmount}
+            orderStatus={orderResult.status}
+            shippingCost={orderResult.shippingCost}
+            itemsSummary={orderResult.items?.map((i) => `${i.quantity}x ${i.productName}`).join(', ')}
+            clientName={orderResult.clientName || customerName || user?.name}
+            whatsappNumber={whatsappNumber}
+            mode="buyer"
+          />
 
-              {/* Indicador de Polling em Tempo Real */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.85rem',
-                  color: 'var(--primary)',
-                  marginBottom: '1.25rem'
-                }}
-              >
-                <RefreshCw size={15} className={pollingStatus ? 'animate-spin' : ''} />
-                <span>Aguardando pagamento... A tela atualizará sozinha assim que você pagar o PIX!</span>
-              </div>
-
-              {/* Botão auxiliar para aprovar PIX quando estiver em modo simulado */}
-              {orderResult.simulatedPayment && (
-                <button
-                  type="button"
-                  onClick={handleSimulatePixApproval}
-                  className="btn btn-secondary"
-                  style={{ marginBottom: '1.25rem', borderColor: 'var(--success)', color: 'var(--success)' }}
-                >
-                  <Sparkles size={16} /> Simular Confirmação de Pagamento PIX (Modo Homologação)
-                </button>
-              )}
-            </>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <button type="button" className="btn btn-primary" onClick={() => navigate('/my-orders')}>
               Acompanhar em Meus Pedidos
             </button>

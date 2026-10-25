@@ -53,11 +53,11 @@ export const Login: React.FC = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '3rem 1.5rem',
+      padding: 'clamp(1.5rem, 5vw, 3rem) 1rem',
       minHeight: '80vh'
     }}>
       <div className="glass-panel" style={{
-        padding: '2.5rem',
+        padding: 'clamp(1.5rem, 5vw, 2.5rem)',
         borderRadius: 'var(--radius-lg)',
         border: '1px solid var(--primary-glow-strong)',
         backgroundColor: '#0d1117',
