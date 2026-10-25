@@ -697,13 +697,13 @@ export const Products: React.FC = () => {
       const response = await api.get('/api/admin/products', {
         params: { query: '', sortBy: 'name', direction: 'asc' }
       });
-      const activeList = (response.data as Product[]).filter(
-        p => p.active && p.id !== selectedId
+      const productList = (response.data as Product[]).filter(
+        p => p.id !== selectedId
       );
-      setAllActiveProducts(activeList);
+      setAllActiveProducts(productList);
     } catch (e) {
-      console.error('Erro ao carregar produtos ativos para o Kit', e);
-      setAllActiveProducts(products.filter(p => p.active && p.id !== selectedId));
+      console.error('Erro ao carregar produtos para o Kit', e);
+      setAllActiveProducts(products.filter(p => p.id !== selectedId));
     }
   };
 
@@ -779,7 +779,7 @@ export const Products: React.FC = () => {
 
   const handleConfirmKitProductSelection = () => {
     if (selectedKitProductIds.length === 0) {
-      setKitModalError('Selecione ao menos um produto ativo para compor o Kit.');
+      setKitModalError('Selecione ao menos um produto para compor o Kit.');
       return;
     }
 
@@ -796,7 +796,7 @@ export const Products: React.FC = () => {
     applyKitProductsAggregation(selectedProducts);
   };
 
-  const filteredActiveProductsForKit = (allActiveProducts.length > 0 ? allActiveProducts : products.filter(p => p.active && p.id !== selectedId))
+  const filteredActiveProductsForKit = (allActiveProducts.length > 0 ? allActiveProducts : products.filter(p => p.id !== selectedId))
     .filter(p => p.name.toLowerCase().includes(kitProductSearchQuery.toLowerCase()));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -2848,7 +2848,7 @@ export const Products: React.FC = () => {
             }}>
               <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Package size={18} style={{ color: 'var(--primary)' }} />
-                Selecionar Produtos Ativos para o Kit
+                Selecionar Produtos para o Kit
               </h3>
               <button
                 type="button"
@@ -2865,7 +2865,7 @@ export const Products: React.FC = () => {
                 <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   type="text"
-                  placeholder="Buscar produto ativo pelo nome..."
+                  placeholder="Buscar produto pelo nome..."
                   value={kitProductSearchQuery}
                   onChange={(e) => setKitProductSearchQuery(e.target.value)}
                   className="form-input"
@@ -2886,7 +2886,7 @@ export const Products: React.FC = () => {
                     {filteredActiveProductsForKit.length === 0 ? (
                       <tr>
                         <td colSpan={3} style={{ textAlign: 'center', padding: '1.75rem', color: 'var(--text-muted)' }}>
-                          Nenhum produto ativo encontrado.
+                          Nenhum produto encontrado.
                         </td>
                       </tr>
                     ) : (
@@ -2899,11 +2899,17 @@ export const Products: React.FC = () => {
                             style={{
                               cursor: 'pointer',
                               background: isChecked ? 'rgba(0, 240, 255, 0.1)' : undefined,
-                              borderLeft: isChecked ? '3px solid var(--primary)' : '3px solid transparent'
+                              borderLeft: isChecked ? '3px solid var(--primary)' : '3px solid transparent',
+                              opacity: prod.active ? 1 : 0.7
                             }}
                           >
                             <td style={{ padding: '0.65rem 0.85rem', fontWeight: 600, color: '#fff' }}>
                               {prod.name}
+                              {!prod.active && (
+                                <span style={{ marginLeft: '0.45rem', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                                  (Inativo)
+                                </span>
+                              )}
                             </td>
                             <td style={{ padding: '0.65rem 0.85rem', textAlign: 'right', color: 'var(--success)', fontWeight: 700 }}>
                               {(prod.salePriceParticular || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}

@@ -123,7 +123,7 @@ export const MyOrders: React.FC = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {orders.map((order) => {
-            const isPaid = order.status === 'PAGO' || order.status === 'ENVIADO';
+            const isPaid = order.status === 'PAGO' || order.status === 'ENVIADO' || order.status === 'ENTREGUE';
             return (
               <div
                 key={order.id}

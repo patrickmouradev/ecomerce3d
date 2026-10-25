@@ -139,7 +139,7 @@ export const Dashboard: React.FC = () => {
 
   // Métricas do Dashboard
   const totalVendas = orders.reduce(
-    (sum, o) => sum + (o.status === 'PAGO' || o.status === 'ENVIADO' ? o.totalAmount : 0),
+    (sum, o) => sum + (o.status === 'PAGO' || o.status === 'ENVIADO' || o.status === 'ENTREGUE' ? o.totalAmount : 0),
     0
   );
   const totalPedidos = orders.length;
@@ -265,15 +265,15 @@ export const Dashboard: React.FC = () => {
                         fontSize: '0.75rem',
                         fontWeight: 700,
                         background:
-                          order.status === 'PAGO' || order.status === 'ENVIADO'
+                          order.status === 'PAGO' || order.status === 'ENVIADO' || order.status === 'ENTREGUE'
                             ? 'var(--success-glow)'
                             : 'rgba(255, 183, 0, 0.1)',
                         color:
-                          order.status === 'PAGO' || order.status === 'ENVIADO'
+                          order.status === 'PAGO' || order.status === 'ENVIADO' || order.status === 'ENTREGUE'
                             ? 'var(--success)'
                             : 'var(--warning)',
                         border: `1px solid ${
-                          order.status === 'PAGO' || order.status === 'ENVIADO'
+                          order.status === 'PAGO' || order.status === 'ENVIADO' || order.status === 'ENTREGUE'
                             ? 'rgba(0, 255, 136, 0.2)'
                             : 'rgba(255, 183, 0, 0.2)'
                         }`
@@ -443,6 +443,7 @@ export const Dashboard: React.FC = () => {
                     <option value="PENDENTE">PENDENTE (Aguardando PIX)</option>
                     <option value="PAGO">PAGO (Em Produção 3D)</option>
                     <option value="ENVIADO">ENVIADO (Postado nos Correios)</option>
+                    <option value="ENTREGUE">ENTREGUE (Pedido Entregue ao Cliente)</option>
                     <option value="CANCELADO">CANCELADO</option>
                   </select>
                 </div>

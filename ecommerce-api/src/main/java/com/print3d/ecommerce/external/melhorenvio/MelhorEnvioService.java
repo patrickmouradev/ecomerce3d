@@ -156,11 +156,11 @@ public class MelhorEnvioService {
             // Ordena as opções dos Correios da mais barata para a mais cara
             validOptions.sort(Comparator.comparing(MelhorEnvioOptionDto::getValor));
 
-            // Adiciona a opção de Retirar com Comprador (R$ 0,00)
+            // Adiciona a opção de Retirada com o Vendedor (R$ 0,00)
             validOptions.add(MelhorEnvioOptionDto.builder()
                     .id(0)
                     .transportadora("Retirada")
-                    .nome("Retirar com Comprador")
+                    .nome("Retirada com o Vendedor")
                     .valor(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
                     .prazoDias(1)
                     .build());
@@ -234,7 +234,7 @@ public class MelhorEnvioService {
                 MelhorEnvioOptionDto.builder()
                         .id(0)
                         .transportadora("Retirada")
-                        .nome("Retirar com Comprador")
+                        .nome("Retirada com o Vendedor")
                         .valor(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
                         .prazoDias(1)
                         .build()

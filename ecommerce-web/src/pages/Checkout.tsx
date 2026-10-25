@@ -767,7 +767,7 @@ export const Checkout: React.FC = () => {
                         handleSelectShippingOption({
                           id: 0,
                           transportadora: 'Retirada',
-                          nome: 'Retirar com Comprador',
+                          nome: 'Retirada com o Vendedor',
                           valor: 0,
                           prazoDias: 1
                         })
@@ -788,7 +788,7 @@ export const Checkout: React.FC = () => {
                     >
                       <div>
                         <div style={{ fontWeight: 700, color: shippingServiceId === 0 ? 'var(--primary)' : '#fff' }}>
-                          Retirar com Comprador
+                          Retirada com o Vendedor
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                           Retirada direta sem custo de envio

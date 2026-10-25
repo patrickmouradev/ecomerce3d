@@ -146,6 +146,25 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
     }
   };
 
+  const handleMarkAsDelivered = async () => {
+    if (updatingStatus) return;
+    setUpdatingStatus(true);
+    try {
+      await api.patch(`/api/admin/orders/${orderId}`, { status: 'ENTREGUE' });
+      await handleSendMessage(
+        undefined,
+        `📦 Seu pedido #${displayOrderNumber} foi entregue! Muito obrigado pela sua compra na 3DPrintPNG!`
+      );
+      if (onStatusUpdated) {
+        onStatusUpdated('ENTREGUE');
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar pedido para ENTREGUE', e);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const handleCopyText = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedMsgId(id);
@@ -323,6 +342,24 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
               }}
             >
               <CheckCircle size={14} /> Confirmar PIX Recebido (PAGO)
+            </button>
+          )}
+
+          {(orderStatus === 'PAGO' || orderStatus === 'ENVIADO') && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={updatingStatus}
+              onClick={handleMarkAsDelivered}
+              style={{
+                padding: '0.45rem 0.85rem',
+                fontSize: '0.8rem',
+                borderColor: 'var(--success)',
+                color: 'var(--success)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <CheckCircle size={14} /> Marcar como Entregue (ENTREGUE)
             </button>
           )}
         </div>
