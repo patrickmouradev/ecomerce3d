@@ -56,7 +56,7 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
-  const [pixKeyInput, setPixKeyInput] = useState(() => localStorage.getItem('3dprintpng_seller_pix_key') || '');
+  const [pixKeyInput, setPixKeyInput] = useState(() => localStorage.getItem('3dprintpng_seller_pix_key') || '21958651800');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -111,20 +111,11 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
   };
 
   const handleSendPixTemplate = () => {
-    const cleanKey = pixKeyInput.trim();
-    if (cleanKey) {
-      localStorage.setItem('3dprintpng_seller_pix_key', cleanKey);
-    }
+    const cleanKey = pixKeyInput.trim() || '21958651800';
+    localStorage.setItem('3dprintpng_seller_pix_key', cleanKey);
     const formattedTotal = orderTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const msg = cleanKey
-      ? `Segue a chave PIX para pagamento do seu pedido #${displayOrderNumber} no valor de ${formattedTotal}:\n\nChave PIX: ${cleanKey}\n\nAssim que realizar o pagamento, me avise por aqui para iniciarmos a impressão 3D!`
-      : `Segue o valor total do seu pedido #${displayOrderNumber}: ${formattedTotal}.\nChave PIX: [INSIRA SUA CHAVE PIX AQUI]`;
-
-    if (cleanKey) {
-      handleSendMessage(undefined, msg);
-    } else {
-      setNewMessage(msg);
-    }
+    const msg = `Segue os dados para pagamento via PIX do seu pedido #${displayOrderNumber} (${formattedTotal}):\n\nChave : ${cleanKey}\nTitular : Patrick Jose de Moura\n\nAssim que realizar o pagamento, me avise por aqui para iniciarmos a impressão 3D!`;
+    handleSendMessage(undefined, msg);
   };
 
   const handleMarkAsPaid = async () => {
@@ -165,8 +156,17 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
     }
   };
 
+  const extractPixKeyFromMessage = (text: string): string => {
+    const match = text.match(/Chave(?:\s*PIX)?\s*:\s*([^\n\r]+)/i);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+    return text;
+  };
+
   const handleCopyText = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+    const valueToCopy = extractPixKeyFromMessage(text);
+    navigator.clipboard.writeText(valueToCopy);
     setCopiedMsgId(id);
     setTimeout(() => setCopiedMsgId(null), 2500);
   };

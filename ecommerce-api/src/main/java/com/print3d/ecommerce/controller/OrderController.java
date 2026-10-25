@@ -7,6 +7,7 @@ import com.print3d.ecommerce.model.User;
 import com.print3d.ecommerce.repository.OrderRepository;
 import com.print3d.ecommerce.repository.UserRepository;
 import com.print3d.ecommerce.service.CheckoutService;
+import com.print3d.ecommerce.service.OrderEmailService;
 import com.print3d.ecommerce.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -32,15 +33,18 @@ public class OrderController {
     private final UserRepository userRepository;
     private final ReportService reportService;
     private final CheckoutService checkoutService;
+    private final OrderEmailService orderEmailService;
 
     public OrderController(OrderRepository orderRepository,
                            UserRepository userRepository,
                            ReportService reportService,
-                           CheckoutService checkoutService) {
+                           CheckoutService checkoutService,
+                           OrderEmailService orderEmailService) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.reportService = reportService;
         this.checkoutService = checkoutService;
+        this.orderEmailService = orderEmailService;
     }
 
     @GetMapping
@@ -58,6 +62,9 @@ public class OrderController {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
 
+        String previousStatus = order.getStatus() != null ? order.getStatus().trim().toUpperCase() : "";
+        String previousTracking = order.getTrackingCode() != null ? order.getTrackingCode().trim() : "";
+
         if (payload.containsKey("status") && payload.get("status") != null) {
             order.setStatus(payload.get("status").trim().toUpperCase());
         }
@@ -66,6 +73,16 @@ public class OrderController {
         }
 
         order = orderRepository.save(order);
+
+        String currentStatus = order.getStatus() != null ? order.getStatus().trim().toUpperCase() : "";
+        String currentTracking = order.getTrackingCode() != null ? order.getTrackingCode().trim() : "";
+        boolean statusChanged = !previousStatus.equalsIgnoreCase(currentStatus);
+        boolean trackingAddedOrUpdated = !currentTracking.isEmpty() && !previousTracking.equals(currentTracking);
+
+        if (statusChanged || trackingAddedOrUpdated) {
+            orderEmailService.sendOrderStatusUpdatedEmail(order);
+        }
+
         return ResponseEntity.ok(checkoutService.toOrderResponseDto(order));
     }
 

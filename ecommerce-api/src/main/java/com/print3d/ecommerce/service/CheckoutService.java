@@ -49,6 +49,7 @@ public class CheckoutService {
     private final SystemParameterRepository systemParameterRepository;
     private final MelhorEnvioService melhorEnvioService;
     private final MercadoPagoService mercadoPagoService;
+    private final OrderEmailService orderEmailService;
     private final ObjectMapper objectMapper;
 
     public CheckoutService(ProductRepository productRepository,
@@ -58,6 +59,7 @@ public class CheckoutService {
                            SystemParameterRepository systemParameterRepository,
                            MelhorEnvioService melhorEnvioService,
                            MercadoPagoService mercadoPagoService,
+                           OrderEmailService orderEmailService,
                            ObjectMapper objectMapper) {
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
@@ -66,6 +68,7 @@ public class CheckoutService {
         this.systemParameterRepository = systemParameterRepository;
         this.melhorEnvioService = melhorEnvioService;
         this.mercadoPagoService = mercadoPagoService;
+        this.orderEmailService = orderEmailService;
         this.objectMapper = objectMapper;
     }
 
@@ -81,7 +84,7 @@ public class CheckoutService {
                         .valorFrete(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
                         .prazoEntregaDias(1)
                         .servicoId(0)
-                        .servicoNome("Retirar com Comprador")
+                        .servicoNome("Retirada com o Vendedor")
                         .simulado(false)
                         .opcoes(List.of())
                         .build();
@@ -233,8 +236,11 @@ public class CheckoutService {
                     : order.getId().toString().substring(0, 8);
             String itemsSummary = String.join(", ", productNames);
             String welcomeMsg = String.format(
-                    "Olá, %s! Recebemos seu pedido #%s (%s) com envio via %s (Frete: R$ %s | Total: R$ %s). " +
-                    "Por aqui vou te enviar a chave/código PIX para pagamento. Se quiser tirar alguma dúvida, fique à vontade para escrever abaixo!",
+                    "Olá, %s! Recebemos seu pedido #%s (%s) — %s (Frete: R$ %s | Total: R$ %s).\n\n" +
+                    "Segue os dados para pagamento via PIX:\n" +
+                    "Chave : 21958651800\n" +
+                    "Titular : Patrick Jose de Moura\n\n" +
+                    "Assim que realizar o pagamento, nos avise por aqui!",
                     firstName,
                     displayOrderNumber,
                     itemsSummary,
@@ -251,6 +257,8 @@ public class CheckoutService {
                     .message(welcomeMsg)
                     .build();
             orderMessageRepository.save(autoMessage);
+
+            orderEmailService.sendOrderCreatedEmail(order, shippingResponse.getServicoNome());
 
             return toOrderResponseDto(order);
         }
@@ -313,6 +321,7 @@ public class CheckoutService {
         }
 
         order = orderRepository.save(order);
+        orderEmailService.sendOrderCreatedEmail(order, shippingResponse.getServicoNome());
         return toOrderResponseDto(order);
     }
 
@@ -357,6 +366,7 @@ public class CheckoutService {
         order.setStatus("PAGO");
         order.setPaymentStatusDetail("accredited_simulated");
         order = orderRepository.save(order);
+        orderEmailService.sendOrderStatusUpdatedEmail(order);
         return toOrderResponseDto(order);
     }
 
@@ -395,6 +405,7 @@ public class CheckoutService {
     private void updateOrderFromMercadoPagoStatus(Order order, MercadoPagoPaymentResponseDto mpStatus) {
         if (mpStatus == null || mpStatus.getStatus() == null) return;
 
+        String previousStatus = order.getStatus();
         order.setPaymentStatusDetail(mpStatus.getStatusDetail());
         if ("approved".equalsIgnoreCase(mpStatus.getStatus())) {
             order.setStatus("PAGO");
@@ -403,7 +414,10 @@ public class CheckoutService {
             order.setStatus("CANCELADO");
             log.info("Pedido {} atualizado para CANCELADO via Mercado Pago.", order.getId());
         }
-        orderRepository.save(order);
+        order = orderRepository.save(order);
+        if (previousStatus == null || !previousStatus.equalsIgnoreCase(order.getStatus())) {
+            orderEmailService.sendOrderStatusUpdatedEmail(order);
+        }
     }
 
     public OrderResponseDto toOrderResponseDto(Order order) {
@@ -531,6 +545,10 @@ public class CheckoutService {
                 .senderRole(senderRole)
                 .message(messageText.trim())
                 .build());
+
+        if (!isSellerMessage) {
+            orderEmailService.sendAdminBuyerChatMessageNotification(order, saved);
+        }
 
         return toOrderMessageDto(saved);
     }

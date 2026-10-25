@@ -351,7 +351,7 @@ export const Checkout: React.FC = () => {
       if (address.zipCode.replace(/\D/g, '').length === 8) {
         await handleCalculateShipping(address.zipCode, cartItems, false);
       } else {
-        setErrorMessage('Informe seu CEP e calcule o frete dos Correios (ou selecione Retirar com Comprador) antes de avançar.');
+        setErrorMessage('Informe seu CEP e calcule o frete dos Correios (ou selecione Retirada com o Vendedor) antes de avançar.');
         return;
       }
     }
@@ -809,7 +809,7 @@ export const Checkout: React.FC = () => {
                   <span>{subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                  <span>Frete Correios:</span>
+                  <span>{shippingServiceId === 0 ? 'Frete (Retirada com o Vendedor):' : 'Frete Correios:'}</span>
                   <span>
                     {shippingCost !== null
                       ? shippingCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -863,7 +863,9 @@ export const Checkout: React.FC = () => {
         <form onSubmit={handleProceedToStep3} className="glass-panel" style={{ padding: 'clamp(1.25rem, 3vw, 2rem)', borderRadius: 'var(--radius-md)' }}>
           <h3 style={{ fontSize: '1.3rem', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <MapPin size={20} style={{ color: 'var(--primary)' }} />
-            Dados do Comprador e Endereço de Entrega (Correios)
+            {shippingServiceId === 0
+              ? 'Dados do Comprador e Endereço (Retirada com o Vendedor)'
+              : 'Dados do Comprador e Endereço de Entrega (Correios)'}
           </h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.75rem' }}>
             Esses dados são utilizados para a emissão da etiqueta de envio pelos Correios e ficarão salvos para suas próximas compras.
@@ -1119,7 +1121,11 @@ export const Checkout: React.FC = () => {
               <div><strong>Cliente:</strong> {customerName}</div>
               <div><strong>CPF/CNPJ:</strong> {cpf}</div>
               <div><strong>Telefone:</strong> {phone}</div>
-              <div><strong>Entrega (Correios):</strong> {address.streetName}, {address.streetNumber} - {address.neighborhood}, {address.city}/{address.federalUnit} (CEP: {address.zipCode})</div>
+              {shippingServiceId === 0 ? (
+                <div><strong>Entrega:</strong> Retirada com o Vendedor</div>
+              ) : (
+                <div><strong>Entrega ({shippingServiceName || 'Correios'}):</strong> {address.streetName}, {address.streetNumber} - {address.neighborhood}, {address.city}/{address.federalUnit} (CEP: {address.zipCode})</div>
+              )}
             </div>
 
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
