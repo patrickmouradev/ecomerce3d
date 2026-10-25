@@ -112,6 +112,7 @@ pipeline {
                         -e MELHOR_ENVIO_TOKEN="${MELHOR_ENVIO_TOKEN}" \
                         -e MERCADO_PAGO_PUBLIC_KEY="${MERCADO_PAGO_PUBLIC_KEY}" \
                         -e MERCADO_PAGO_ACCESS_TOKEN="${MERCADO_PAGO_ACCESS_TOKEN}" \
+                        -e FRONTEND_URL="https://3dprintpng.com.br" \
                         -e SERVER_PORT="${APP_PORT}" \
                         -e UPLOAD_DIR=/app/uploads \
                         -v ${UPLOADS_HOST_DIR}:/app/uploads \
