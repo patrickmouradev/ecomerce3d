@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { getAccessories, createAccessory, type Accessory } from '../../services/accessoryService';
-import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload, Copy, ChevronLeft, ChevronRight, Star, Paperclip, Check, Sparkles } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, ArrowUpDown, X, Loader, Upload, Copy, ChevronLeft, ChevronRight, Star, Paperclip, Check, Sparkles, Package } from 'lucide-react';
 
 interface ProductFilament {
   filamentId: string;
@@ -17,6 +17,13 @@ interface ProductAccessory {
   quantity: number;
 }
 
+interface ProductKitItem {
+  productId: string;
+  productName: string;
+  salePriceParticular: number;
+  quantity: number;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -27,6 +34,8 @@ interface Product {
   accessories?: ProductAccessory[];
   multiColor?: boolean;
   availableColors?: string[];
+  isKit?: boolean;
+  kitItems?: ProductKitItem[];
   accessoryCostTotal?: number;
   suggestedPrice: number;
   suggestedPriceShoppe: number;
@@ -69,10 +78,19 @@ export const Products: React.FC = () => {
   const [sortBy, setSortBy] = useState('name');
   const [direction, setDirection] = useState('asc');
 
-  // Modal de Produto
+  // Modal de Produto / Kit
   const [modalOpen, setModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isKitMode, setIsKitMode] = useState(false);
+  const [kitItems, setKitItems] = useState<ProductKitItem[]>([]);
+
+  // Modal de Seleção de Produtos para o Kit
+  const [isKitProductModalOpen, setIsKitProductModalOpen] = useState(false);
+  const [kitProductSearchQuery, setKitProductSearchQuery] = useState('');
+  const [selectedKitProductIds, setSelectedKitProductIds] = useState<string[]>([]);
+  const [allActiveProducts, setAllActiveProducts] = useState<Product[]>([]);
+  const [kitModalError, setKitModalError] = useState('');
 
   // Modal de Seleção de Filamentos
   const [isFilamentModalOpen, setIsFilamentModalOpen] = useState(false);
@@ -332,6 +350,9 @@ export const Products: React.FC = () => {
 
   const openCreateModal = () => {
     setIsEditing(false);
+    setSelectedId(null);
+    setIsKitMode(false);
+    setKitItems([]);
     setName('');
     setDescription('');
     setProductFilaments([]);
@@ -340,7 +361,45 @@ export const Products: React.FC = () => {
     setAvailableColors([]);
     setNewColorInput('');
     setPrintingHours('');
-    setProfitMargin('');
+    setProfitMargin('50');
+    setSalePriceParticular('');
+    setSalePriceShoppe('');
+    setSalePriceMercadoLivre('0');
+    setActive(true);
+    setImagesVideosPaths([]);
+    setBannerImagesPaths([]);
+    setSuggestedPriceShoppe(null);
+    setSuggestedPriceParticular(null);
+    setSuggestedPriceMercadoLivre(0);
+    setProductionCost(null);
+    setNetProfit(null);
+    setNetProfitShoppe(null);
+    setNetProfitMercadoLivre(0);
+    setEnergyCostTotal(null);
+    setPrinterWearTotal(null);
+    setPackagingCost(null);
+    setAccessoryCostTotal(null);
+    setShopeeCostsTotal(null);
+    setMercadoLivreCostsTotal(0);
+    setProductionCostWithoutShoppe(null);
+    setFormError('');
+    setModalOpen(true);
+  };
+
+  const openCreateKitModal = () => {
+    setIsEditing(false);
+    setSelectedId(null);
+    setIsKitMode(true);
+    setKitItems([]);
+    setName('');
+    setDescription('');
+    setProductFilaments([]);
+    setProductAccessories([]);
+    setMultiColor(false);
+    setAvailableColors([]);
+    setNewColorInput('');
+    setPrintingHours('');
+    setProfitMargin('50');
     setSalePriceParticular('');
     setSalePriceShoppe('');
     setSalePriceMercadoLivre('0');
@@ -368,6 +427,8 @@ export const Products: React.FC = () => {
   const openEditModal = (prod: Product) => {
     setIsEditing(true);
     setSelectedId(prod.id);
+    setIsKitMode(!!prod.isKit);
+    setKitItems(prod.kitItems || []);
     setName(prod.name);
     setDescription(prod.description);
     setProductFilaments(
@@ -416,6 +477,8 @@ export const Products: React.FC = () => {
   const openDuplicateModal = (prod: Product) => {
     setIsEditing(false);
     setSelectedId(null);
+    setIsKitMode(!!prod.isKit);
+    setKitItems(prod.kitItems || []);
     setName(prod.name + ' (Cópia)');
     setDescription(prod.description);
     setProductFilaments(
@@ -623,13 +686,134 @@ export const Products: React.FC = () => {
     return a.description.toLowerCase().includes(query);
   });
 
+  // Funções do Modal de Seleção de Produtos para o Kit
+  const openKitProductSelectorModal = async () => {
+    setKitProductSearchQuery('');
+    setKitModalError('');
+    setSelectedKitProductIds(kitItems.map(k => k.productId));
+    setIsKitProductModalOpen(true);
+
+    try {
+      const response = await api.get('/api/admin/products', {
+        params: { query: '', sortBy: 'name', direction: 'asc' }
+      });
+      const activeList = (response.data as Product[]).filter(
+        p => p.active && p.id !== selectedId
+      );
+      setAllActiveProducts(activeList);
+    } catch (e) {
+      console.error('Erro ao carregar produtos ativos para o Kit', e);
+      setAllActiveProducts(products.filter(p => p.active && p.id !== selectedId));
+    }
+  };
+
+  const toggleSelectKitProduct = (productId: string) => {
+    setKitModalError('');
+    setSelectedKitProductIds(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const applyKitProductsAggregation = (selectedProducts: Product[]) => {
+    // 1. Atualiza lista de itens do Kit
+    const newKitItems: ProductKitItem[] = selectedProducts.map(p => ({
+      productId: p.id,
+      productName: p.name,
+      salePriceParticular: p.salePriceParticular || 0,
+      quantity: 1
+    }));
+    setKitItems(newKitItems);
+
+    // 2. Soma filamentos (agrupando por filamentId)
+    const filamentMap = new Map<string, number>();
+    selectedProducts.forEach(p => {
+      (p.filaments || []).forEach(pf => {
+        if (pf.filamentId) {
+          const currentWeight = filamentMap.get(pf.filamentId) || 0;
+          filamentMap.set(pf.filamentId, currentWeight + (Number(pf.weightG) || 0));
+        }
+      });
+    });
+    const aggregatedFilaments = Array.from(filamentMap.entries()).map(([filamentId, totalWeight]) => ({
+      filamentId,
+      weightG: Number(totalWeight.toFixed(3)).toString()
+    }));
+    setProductFilaments(aggregatedFilaments);
+
+    // 3. Soma acessórios (agrupando por accessoryId)
+    const accessoryMap = new Map<string, { accessoryId: string; description: string; price: number; quantity: number }>();
+    selectedProducts.forEach(p => {
+      (p.accessories || []).forEach(pa => {
+        if (pa.accessoryId) {
+          const existing = accessoryMap.get(pa.accessoryId);
+          if (existing) {
+            existing.quantity += Number(pa.quantity) || 1;
+          } else {
+            accessoryMap.set(pa.accessoryId, {
+              accessoryId: pa.accessoryId,
+              description: pa.description,
+              price: Number(pa.price) || 0,
+              quantity: Number(pa.quantity) || 1
+            });
+          }
+        }
+      });
+    });
+    setProductAccessories(Array.from(accessoryMap.values()));
+
+    // 4. Soma horas de impressão
+    const totalHours = selectedProducts.reduce((sum, p) => sum + (Number(p.printingHours) || 0), 0);
+    setPrintingHours(totalHours > 0 ? Number(totalHours.toFixed(2)).toString() : '');
+
+    // 5. Soma valores de venda (Particular, Shoppe e Mercado Livre) como base inicial
+    const totalSaleParticular = selectedProducts.reduce((sum, p) => sum + (Number(p.salePriceParticular) || 0), 0);
+    const totalSaleShoppe = selectedProducts.reduce((sum, p) => sum + (Number(p.salePriceShoppe) || 0), 0);
+    const totalSaleML = selectedProducts.reduce((sum, p) => sum + (Number(p.salePriceMercadoLivre) || 0), 0);
+
+    setSalePriceParticular(totalSaleParticular > 0 ? totalSaleParticular.toFixed(2) : '');
+    setSalePriceShoppe(totalSaleShoppe > 0 ? totalSaleShoppe.toFixed(2) : '');
+    setSalePriceMercadoLivre(totalSaleML > 0 ? totalSaleML.toFixed(2) : '0');
+  };
+
+  const handleConfirmKitProductSelection = () => {
+    if (selectedKitProductIds.length === 0) {
+      setKitModalError('Selecione ao menos um produto ativo para compor o Kit.');
+      return;
+    }
+
+    const sourceList = allActiveProducts.length > 0 ? allActiveProducts : products;
+    const selectedProducts = sourceList.filter(p => selectedKitProductIds.includes(p.id));
+    applyKitProductsAggregation(selectedProducts);
+    setIsKitProductModalOpen(false);
+  };
+
+  const handleRemoveKitItem = (productIdToRemove: string) => {
+    const remainingIds = kitItems.filter(k => k.productId !== productIdToRemove).map(k => k.productId);
+    const sourceList = allActiveProducts.length > 0 ? allActiveProducts : products;
+    const selectedProducts = sourceList.filter(p => remainingIds.includes(p.id));
+    applyKitProductsAggregation(selectedProducts);
+  };
+
+  const filteredActiveProductsForKit = (allActiveProducts.length > 0 ? allActiveProducts : products.filter(p => p.active && p.id !== selectedId))
+    .filter(p => p.name.toLowerCase().includes(kitProductSearchQuery.toLowerCase()));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
     const hasValidFilaments = productFilaments.length > 0 && productFilaments.every(f => f.filamentId && parseFloat(f.weightG) > 0);
+    if (isKitMode && kitItems.length === 0) {
+      setFormError('Selecione ao menos um produto para compor o Kit');
+      return;
+    }
     if (!name.trim() || !printingHours.trim() || !hasValidFilaments || !salePriceParticular.trim() || !salePriceShoppe.trim() || !profitMargin.trim()) {
-      setFormError('Preencha todos os campos obrigatórios e adicione ao menos um filamento com peso válido');
+      setFormError(
+        isKitMode
+          ? 'Preencha todos os campos obrigatórios e selecione produtos que possuam filamentos e horas de impressão válidos'
+          : 'Preencha todos os campos obrigatórios e adicione ao menos um filamento com peso válido'
+      );
       return;
     }
 
@@ -679,6 +863,8 @@ export const Products: React.FC = () => {
       })),
       multiColor: effectiveMultiColor,
       availableColors: effectiveMultiColor ? [] : effectiveColors,
+      isKit: isKitMode,
+      kitItems: isKitMode ? kitItems : [],
       profitMargin: margin,
       salePriceParticular: priceParticular,
       salePriceShoppe: priceShoppe,
@@ -746,15 +932,29 @@ export const Products: React.FC = () => {
     <div style={{ padding: '2rem', maxWidth: '1380px', margin: '0 auto' }}>
       
       {/* Topo da Tela */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 style={{ fontSize: '1.75rem', fontFamily: 'var(--font-display)' }}>Catálogo de Peças (Admin)</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Cadastre suas impressões 3D com calculadora inteligente e fotos/vídeos</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Cadastre suas impressões 3D e Kits com calculadora inteligente e fotos/vídeos</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreateModal}>
-          <Plus size={16} />
-          Adicionar Novo Produto
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={openCreateKitModal}
+            style={{
+              borderColor: 'var(--primary)',
+              color: 'var(--primary)',
+              background: 'rgba(0, 240, 255, 0.08)'
+            }}
+          >
+            <Package size={16} />
+            Adicionar Kit
+          </button>
+          <button className="btn btn-primary" onClick={openCreateModal}>
+            <Plus size={16} />
+            Adicionar Novo Produto
+          </button>
+        </div>
       </div>
 
       {/* Barra de Filtro */}
@@ -835,8 +1035,12 @@ export const Products: React.FC = () => {
                 <th onClick={() => handleSort('salePriceMercadoLivre')}>
                   Venda Mercado Livre <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
-                <th style={{ textAlign: 'center' }}>Anexo</th>
-                <th style={{ textAlign: 'center' }}>Ativo</th>
+                <th onClick={() => handleSort('hasAttachment')} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                  Anexo <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
+                </th>
+                <th onClick={() => handleSort('active')} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                  Ativo <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
+                </th>
                 <th style={{ textAlign: 'center' }}>Ações</th>
               </tr>
             </thead>
@@ -845,7 +1049,26 @@ export const Products: React.FC = () => {
                 const hasAttachment = prod.imagesVideosPaths && prod.imagesVideosPaths.length > 0;
                 return (
                 <tr key={prod.id} style={{ opacity: prod.active ? 1 : 0.5 }}>
-                  <td style={{ fontWeight: 600 }}>{prod.name}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <span>{prod.name}</span>
+                      {prod.isKit && (
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            padding: '0.12rem 0.45rem',
+                            borderRadius: '4px',
+                            background: 'rgba(0, 240, 255, 0.14)',
+                            color: 'var(--primary)',
+                            border: '1px solid rgba(0, 240, 255, 0.35)'
+                          }}
+                        >
+                          KIT
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td>
                     {prod.filaments && prod.filaments.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
@@ -972,8 +1195,11 @@ export const Products: React.FC = () => {
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '960px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
-              <h3 style={{ fontSize: '1.2rem', color: '#fff' }}>
-                {isEditing ? 'Editar Produto' : 'Cadastrar Novo Modelo'}
+              <h3 style={{ fontSize: '1.2rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {isKitMode && <Package size={20} style={{ color: 'var(--primary)' }} />}
+                {isKitMode
+                  ? (isEditing ? 'Editar Kit' : 'Cadastrar Novo Kit')
+                  : (isEditing ? 'Editar Produto' : 'Cadastrar Novo Modelo')}
               </h3>
               <button 
                 onClick={() => setModalOpen(false)}
@@ -985,7 +1211,7 @@ export const Products: React.FC = () => {
             
             <form onSubmit={handleSubmit} style={{ padding: '1.5rem', maxHeight: '80vh', overflowY: 'auto' }}>
               <div className="form-group">
-                <label className="form-label">Nome da Peça (Título de Venda)</label>
+                <label className="form-label">{isKitMode ? 'Nome do Kit (Título de Venda)' : 'Nome da Peça (Título de Venda)'}</label>
                 <input 
                   type="text" 
                   value={name} 
@@ -996,7 +1222,7 @@ export const Products: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Descrição / Detalhes do Modelo</label>
+                <label className="form-label">{isKitMode ? 'Descrição / Detalhes do Kit' : 'Descrição / Detalhes do Modelo'}</label>
                 <textarea 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)} 
@@ -1005,6 +1231,128 @@ export const Products: React.FC = () => {
                 />
               </div>
 
+              {isKitMode ? (
+                <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>
+                      Produtos Selecionados no Kit ({kitItems.length})
+                    </label>
+                    {kitItems.length > 0 && (
+                      <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 700 }}>
+                        Soma Venda Particular: {kitItems.reduce((acc, item) => acc + (item.salePriceParticular || 0), 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '0.75rem'
+                  }}>
+                    {kitItems.length === 0 ? (
+                      <div style={{
+                        padding: '1rem',
+                        textAlign: 'center',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px dashed var(--border-color)',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text-muted)',
+                        fontSize: '0.85rem'
+                      }}>
+                        Nenhum produto selecionado no Kit ainda. Clique no botão abaixo para selecionar os produtos ativos.
+                      </div>
+                    ) : (
+                      <>
+                        {kitItems.map((ki) => (
+                          <div
+                            key={ki.productId}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '0.75rem',
+                              background: 'rgba(255, 255, 255, 0.03)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: 'var(--radius-sm)',
+                              padding: '0.6rem 0.85rem'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                              <Package size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                              <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#fff' }}>
+                                {ki.productName}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--success)', fontWeight: 700 }}>
+                              {(ki.salePriceParticular || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveKitItem(ki.productId)}
+                              className="btn btn-danger"
+                              style={{ padding: '0.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              title="Remover produto do Kit"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+
+                        {/* Resumo automático dos filamentos somados dos produtos do Kit */}
+                        {productFilaments.length > 0 && (
+                          <div style={{
+                            marginTop: '0.35rem',
+                            padding: '0.65rem 0.85rem',
+                            background: 'rgba(0, 240, 255, 0.04)',
+                            border: '1px dashed rgba(0, 240, 255, 0.3)',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.8rem',
+                            color: 'var(--text-secondary)'
+                          }}>
+                            <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '0.35rem' }}>
+                              Filamentos somados automaticamente ({productFilaments.length}):
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              {productFilaments.map((pf, idx) => {
+                                const fil = filaments.find(f => f.id === pf.filamentId);
+                                return (
+                                  <span
+                                    key={idx}
+                                    style={{
+                                      background: 'rgba(255, 255, 255, 0.05)',
+                                      border: '1px solid var(--border-color)',
+                                      padding: '0.2rem 0.55rem',
+                                      borderRadius: '4px',
+                                      color: '#fff',
+                                      fontSize: '0.78rem'
+                                    }}
+                                  >
+                                    {fil ? `${fil.material} - ${fil.brand} (${fil.color})` : 'Filamento'}: <strong>{pf.weightG}g</strong>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={openKitProductSelectorModal}
+                      className="btn btn-secondary"
+                      style={{ alignSelf: 'flex-start', marginTop: '0.5rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                    >
+                      <Plus size={14} />
+                      {kitItems.length > 0 ? 'Alterar Produtos do Kit' : 'Selecionar Produtos do Kit'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                 <label className="form-label">Filamentos Utilizados</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1097,6 +1445,7 @@ export const Products: React.FC = () => {
                   </button>
                 </div>
               </div>
+              )}
 
               {/* Seção de Acessórios do Produto */}
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
@@ -2456,6 +2805,184 @@ export const Products: React.FC = () => {
                   Cadastrar e Vincular
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Seleção de Produtos Ativos para o Kit (3 Colunas: Nome, Valor Venda Particular, Checkbox) */}
+      {isKitProductModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.82)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '1rem'
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: '620px',
+            background: '#0d1117',
+            borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--border-glow)',
+            boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '88vh'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Package size={18} style={{ color: 'var(--primary)' }} />
+                Selecionar Produtos Ativos para o Kit
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsKitProductModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Buscar produto ativo pelo nome..."
+                  value={kitProductSearchQuery}
+                  onChange={(e) => setKitProductSearchQuery(e.target.value)}
+                  className="form-input"
+                  style={{ paddingLeft: '2.25rem', fontSize: '0.875rem' }}
+                />
+              </div>
+
+              <div className="table-container" style={{ maxHeight: '340px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>
+                <table className="premium-table" style={{ fontSize: '0.88rem' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: '0.65rem 0.85rem' }}>Nome do Produto</th>
+                      <th style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>Valor de Venda Particular</th>
+                      <th style={{ padding: '0.65rem 0.85rem', width: '90px', textAlign: 'center' }}>Selecionar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredActiveProductsForKit.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'center', padding: '1.75rem', color: 'var(--text-muted)' }}>
+                          Nenhum produto ativo encontrado.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredActiveProductsForKit.map((prod) => {
+                        const isChecked = selectedKitProductIds.includes(prod.id);
+                        return (
+                          <tr
+                            key={prod.id}
+                            onClick={() => toggleSelectKitProduct(prod.id)}
+                            style={{
+                              cursor: 'pointer',
+                              background: isChecked ? 'rgba(0, 240, 255, 0.1)' : undefined,
+                              borderLeft: isChecked ? '3px solid var(--primary)' : '3px solid transparent'
+                            }}
+                          >
+                            <td style={{ padding: '0.65rem 0.85rem', fontWeight: 600, color: '#fff' }}>
+                              {prod.name}
+                            </td>
+                            <td style={{ padding: '0.65rem 0.85rem', textAlign: 'right', color: 'var(--success)', fontWeight: 700 }}>
+                              {(prod.salePriceParticular || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </td>
+                            <td style={{ padding: '0.65rem 0.85rem', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleSelectKitProduct(prod.id)}
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  accentColor: 'var(--primary)',
+                                  cursor: 'pointer',
+                                  verticalAlign: 'middle'
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {selectedKitProductIds.length > 0 && (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '0.65rem 0.9rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(0, 240, 255, 0.06)',
+                  border: '1px solid rgba(0, 240, 255, 0.25)',
+                  fontSize: '0.85rem'
+                }}>
+                  <span style={{ color: '#fff', fontWeight: 600 }}>
+                    {selectedKitProductIds.length} produto(s) selecionado(s)
+                  </span>
+                  <span style={{ color: 'var(--success)', fontWeight: 700 }}>
+                    Total Particular: {(allActiveProducts.length > 0 ? allActiveProducts : products)
+                      .filter(p => selectedKitProductIds.includes(p.id))
+                      .reduce((sum, p) => sum + (p.salePriceParticular || 0), 0)
+                      .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
+              )}
+
+              {kitModalError && (
+                <p style={{ color: 'var(--danger)', fontSize: '0.85rem', margin: 0 }}>{kitModalError}</p>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '1rem 1.5rem',
+              borderTop: '1px solid var(--border-color)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              background: 'rgba(0,0,0,0.2)'
+            }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsKitProductModalOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleConfirmKitProductSelection}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Check size={15} />
+                Confirmar Seleção
+              </button>
             </div>
           </div>
         </div>

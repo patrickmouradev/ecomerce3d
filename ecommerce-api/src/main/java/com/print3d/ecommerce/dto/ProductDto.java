@@ -40,6 +40,10 @@ public class ProductDto {
 
     private List<String> availableColors;
 
+    private Boolean isKit;
+
+    private List<ProductKitItemDto> kitItems;
+
     private BigDecimal suggestedPrice; // Calculado pelo sistema dinamicamente
     private BigDecimal suggestedPriceShoppe;
     private BigDecimal suggestedPriceParticular;

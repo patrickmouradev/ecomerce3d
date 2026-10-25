@@ -48,6 +48,14 @@ public class Product {
     @Builder.Default
     private List<ProductColor> availableColors = new java.util.ArrayList<>();
 
+    @Column(name = "is_kit", nullable = false)
+    @Builder.Default
+    private boolean isKit = false;
+
+    @OneToMany(mappedBy = "kitProduct", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ProductKitItem> kitItems = new java.util.ArrayList<>();
+
     @Column(name = "profit_margin", nullable = false, precision = 10, scale = 2)
     private BigDecimal profitMargin;
 

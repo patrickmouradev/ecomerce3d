@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.print3d</groupId>
     <artifactId>ecommerce-api</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <name>ecommerce-api</name>
     <description>Back-end para o e-commerce 3DPrintPNG</description>
 

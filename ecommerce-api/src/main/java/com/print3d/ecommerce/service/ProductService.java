@@ -3,11 +3,13 @@ package com.print3d.ecommerce.service;
 import com.print3d.ecommerce.dto.PricingResult;
 import com.print3d.ecommerce.dto.ProductDto;
 import com.print3d.ecommerce.dto.ProductFilamentDto;
+import com.print3d.ecommerce.dto.ProductKitItemDto;
 import com.print3d.ecommerce.model.Banner;
 import com.print3d.ecommerce.model.Filament;
 import com.print3d.ecommerce.model.Product;
 import com.print3d.ecommerce.model.ProductColor;
 import com.print3d.ecommerce.model.ProductFilament;
+import com.print3d.ecommerce.model.ProductKitItem;
 import com.print3d.ecommerce.dto.ProductAccessoryDto;
 import com.print3d.ecommerce.model.Accessory;
 import com.print3d.ecommerce.model.ProductAccessory;
@@ -72,7 +74,26 @@ public class ProductService {
                 query == null || query.trim().isEmpty() ? null : query.trim(),
                 sort
         );
-        return products.stream().map(this::convertToDto).toList();
+        List<ProductDto> dtos = new ArrayList<>(products.stream().map(this::convertToDto).toList());
+        boolean desc = "desc".equalsIgnoreCase(direction);
+
+        if ("hasAttachment".equalsIgnoreCase(sortBy)) {
+            dtos.sort((a, b) -> {
+                boolean hasA = a.getImagesVideosPaths() != null && !a.getImagesVideosPaths().isEmpty();
+                boolean hasB = b.getImagesVideosPaths() != null && !b.getImagesVideosPaths().isEmpty();
+                int cmp = Boolean.compare(hasA, hasB);
+                return desc ? -cmp : cmp;
+            });
+        } else if ("weightG".equalsIgnoreCase(sortBy)) {
+            dtos.sort((a, b) -> {
+                BigDecimal wA = a.getWeightG() != null ? a.getWeightG() : BigDecimal.ZERO;
+                BigDecimal wB = b.getWeightG() != null ? b.getWeightG() : BigDecimal.ZERO;
+                int cmp = wA.compareTo(wB);
+                return desc ? -cmp : cmp;
+            });
+        }
+
+        return dtos;
     }
 
     @Transactional(readOnly = true)
@@ -91,6 +112,7 @@ public class ProductService {
                         .map(String::trim)
                         .toList();
         boolean isMultiColor = Boolean.TRUE.equals(dto.getMultiColor()) || validColors.isEmpty();
+        boolean isKit = Boolean.TRUE.equals(dto.getIsKit());
         Product product = Product.builder()
                 .name(dto.getName().trim())
                 .description(dto.getDescription())
@@ -100,9 +122,26 @@ public class ProductService {
                 .salePriceShoppe(dto.getSalePriceShoppe())
                 .salePriceMercadoLivre(dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO)
                 .multiColor(isMultiColor)
+                .isKit(isKit)
                 .active(dto.getActive() != null ? dto.getActive() : true)
                 .imagesVideosPaths(dto.getImagesVideosPaths() != null ? dto.getImagesVideosPaths() : new ArrayList<>())
                 .build();
+
+        if (isKit && dto.getKitItems() != null) {
+            List<ProductKitItem> kitList = new ArrayList<>();
+            for (ProductKitItemDto kiDto : dto.getKitItems()) {
+                if (kiDto.getProductId() != null) {
+                    Product child = productRepository.findById(kiDto.getProductId())
+                            .orElseThrow(() -> new RuntimeException("Produto do Kit não encontrado"));
+                    kitList.add(ProductKitItem.builder()
+                            .kitProduct(product)
+                            .childProduct(child)
+                            .quantity(kiDto.getQuantity() != null && kiDto.getQuantity() > 0 ? kiDto.getQuantity() : 1)
+                            .build());
+                }
+            }
+            product.setKitItems(kitList);
+        }
 
         if (!isMultiColor) {
             List<ProductColor> pcList = new ArrayList<>();
@@ -165,6 +204,7 @@ public class ProductService {
                         .map(String::trim)
                         .toList();
         boolean isMultiColor = Boolean.TRUE.equals(dto.getMultiColor()) || validColors.isEmpty();
+        boolean isKit = Boolean.TRUE.equals(dto.getIsKit());
         product.setName(dto.getName().trim());
         product.setDescription(dto.getDescription());
         product.setPrintingHours(dto.getPrintingHours());
@@ -173,11 +213,27 @@ public class ProductService {
         product.setSalePriceShoppe(dto.getSalePriceShoppe());
         product.setSalePriceMercadoLivre(dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO);
         product.setMultiColor(isMultiColor);
+        product.setKit(isKit);
         if (dto.getActive() != null) {
             product.setActive(dto.getActive());
         }
         if (dto.getImagesVideosPaths() != null) {
             product.setImagesVideosPaths(dto.getImagesVideosPaths());
+        }
+
+        product.getKitItems().clear();
+        if (isKit && dto.getKitItems() != null) {
+            for (ProductKitItemDto kiDto : dto.getKitItems()) {
+                if (kiDto.getProductId() != null) {
+                    Product child = productRepository.findById(kiDto.getProductId())
+                            .orElseThrow(() -> new RuntimeException("Produto do Kit não encontrado"));
+                    product.getKitItems().add(ProductKitItem.builder()
+                            .kitProduct(product)
+                            .childProduct(child)
+                            .quantity(kiDto.getQuantity() != null && kiDto.getQuantity() > 0 ? kiDto.getQuantity() : 1)
+                            .build());
+                }
+            }
         }
 
         product.getAvailableColors().clear();
@@ -338,6 +394,9 @@ public class ProductService {
         if (sortBy.equalsIgnoreCase("date")) {
             return Sort.by(dir, "createdAt");
         }
+        if (sortBy.equalsIgnoreCase("hasAttachment") || sortBy.equalsIgnoreCase("weightG")) {
+            return Sort.by(Sort.Direction.ASC, "name");
+        }
         return Sort.by(dir, sortBy);
     }
 
@@ -384,6 +443,20 @@ public class ProductService {
             }
         }
 
+        List<ProductKitItemDto> kitItemsDto = new ArrayList<>();
+        if (product.isKit() && product.getKitItems() != null) {
+            for (ProductKitItem ki : product.getKitItems()) {
+                if (ki.getChildProduct() != null) {
+                    kitItemsDto.add(ProductKitItemDto.builder()
+                            .productId(ki.getChildProduct().getId())
+                            .productName(ki.getChildProduct().getName())
+                            .salePriceParticular(ki.getChildProduct().getSalePriceParticular())
+                            .quantity(ki.getQuantity())
+                            .build());
+                }
+            }
+        }
+
         com.print3d.ecommerce.dto.PricingResult pricing = pricingCalculatorService.calculatePricing(product);
 
         // Busca as imagens que estão ativas no banner deste produto
@@ -402,6 +475,8 @@ public class ProductService {
                 .accessories(accessoriesDto)
                 .multiColor(product.isMultiColor())
                 .availableColors(colorsDto)
+                .isKit(product.isKit())
+                .kitItems(kitItemsDto)
                 .productionCost(pricing.getProductionCost())
                 .suggestedPrice(pricing.getSuggestedPrice())
                 .suggestedPriceShoppe(pricing.getSuggestedPriceShoppe())
