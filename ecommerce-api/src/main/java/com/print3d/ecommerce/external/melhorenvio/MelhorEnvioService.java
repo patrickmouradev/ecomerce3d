@@ -56,9 +56,15 @@ public class MelhorEnvioService {
         }
 
         try {
-            String baseUrl = melhorEnvioUrl.endsWith("/")
-                    ? melhorEnvioUrl.substring(0, melhorEnvioUrl.length() - 1)
-                    : melhorEnvioUrl;
+            String baseUrl = melhorEnvioUrl.trim();
+            while (baseUrl.endsWith("/")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+            }
+            if (baseUrl.endsWith("/api/v2/me/shipment/calculate")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - "/api/v2/me/shipment/calculate".length());
+            } else if (baseUrl.endsWith("/api/v2/me")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - "/api/v2/me".length());
+            }
             String endpoint = baseUrl + CALCULATE_PATH;
 
             HttpHeaders headers = new HttpHeaders();
