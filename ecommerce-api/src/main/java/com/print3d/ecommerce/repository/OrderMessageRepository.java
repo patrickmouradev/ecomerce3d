@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface OrderMessageRepository extends JpaRepository<OrderMessage, UUID> {
     List<OrderMessage> findByOrderIdOrderByCreatedAtAsc(UUID orderId);
     long countByOrderId(UUID orderId);
+    long countByOrderIdAndSenderRoleAndReadFalse(UUID orderId, String senderRole);
 }

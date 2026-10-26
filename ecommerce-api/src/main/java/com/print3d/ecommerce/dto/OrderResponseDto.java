@@ -30,6 +30,8 @@ public class OrderResponseDto {
     private AddressDto shippingAddress;
     private String createdAt;
     private boolean simulatedPayment;
+    private long unreadBuyerMessages;
+    private long unreadSellerMessages;
     private List<OrderItemDto> items;
 
     @Data

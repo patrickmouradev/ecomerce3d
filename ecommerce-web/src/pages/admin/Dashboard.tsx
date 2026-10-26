@@ -39,12 +39,13 @@ interface Order {
   clientName: string;
   clientEmail?: string;
   customerPhone?: string;
-  status: string; // PENDENTE, PAGO, ENVIADO, CANCELADO
+  status: string; // PENDENTE, PAGO, AGUARDANDO RETIRADA, ENVIADO, ENTREGUE, CANCELADO
   shippingCost: number;
   totalAmount: number;
   trackingCode: string;
   shippingAddress?: AddressDto;
   createdAt: string;
+  unreadBuyerMessages?: number;
   items: OrderItem[];
 }
 
@@ -66,17 +67,21 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
+    const interval = setInterval(() => {
+      fetchOrders(true);
+    }, 8000);
+    return () => clearInterval(interval);
   }, [sortBy, direction]);
 
-  const fetchOrders = async () => {
-    setLoading(true);
+  const fetchOrders = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const response = await api.get('/api/admin/orders');
       setOrders(response.data);
     } catch (e) {
       console.error('Erro ao buscar vendas', e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -90,7 +95,10 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleOpenOrderChat = (order: Order) => {
-    setSelectedOrder(order);
+    setSelectedOrder({ ...order, unreadBuyerMessages: 0 });
+    setOrders((prev) =>
+      prev.map((o) => (o.id === order.id ? { ...o, unreadBuyerMessages: 0 } : o))
+    );
     setEditStatus(order.status || 'PENDENTE');
     setEditTrackingCode(order.trackingCode || '');
   };
@@ -138,8 +146,11 @@ export const Dashboard: React.FC = () => {
   };
 
   // Métricas do Dashboard
+  const isPaidOrderStatus = (status: string) =>
+    status === 'PAGO' || status === 'AGUARDANDO RETIRADA' || status === 'ENVIADO' || status === 'ENTREGUE';
+
   const totalVendas = orders.reduce(
-    (sum, o) => sum + (o.status === 'PAGO' || o.status === 'ENVIADO' || o.status === 'ENTREGUE' ? o.totalAmount : 0),
+    (sum, o) => sum + (isPaidOrderStatus(o.status) ? o.totalAmount : 0),
     0
   );
   const totalPedidos = orders.length;
@@ -245,60 +256,88 @@ export const Dashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
-                <tr key={order.id}>
-                  <td style={{ fontSize: '0.85rem', fontFamily: 'monospace', fontWeight: 700, color: 'var(--primary)' }}>
-                    #{order.orderNumber || order.id.substring(0, 8)}
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: '#fff' }}>{order.clientName}</div>
-                    {order.customerPhone && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{order.customerPhone}</div>
-                    )}
-                  </td>
-                  <td>{order.createdAt}</td>
-                  <td>
-                    <span
-                      style={{
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        background:
-                          order.status === 'PAGO' || order.status === 'ENVIADO' || order.status === 'ENTREGUE'
-                            ? 'var(--success-glow)'
-                            : 'rgba(255, 183, 0, 0.1)',
-                        color:
-                          order.status === 'PAGO' || order.status === 'ENVIADO' || order.status === 'ENTREGUE'
-                            ? 'var(--success)'
-                            : 'var(--warning)',
-                        border: `1px solid ${
-                          order.status === 'PAGO' || order.status === 'ENVIADO' || order.status === 'ENTREGUE'
-                            ? 'rgba(0, 255, 136, 0.2)'
-                            : 'rgba(255, 183, 0, 0.2)'
-                        }`
-                      }}
-                    >
-                      {order.status}
-                    </span>
-                  </td>
-                  <td>{order.shippingCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                  <td style={{ fontWeight: 700, color: 'var(--success)' }}>
-                    {order.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}
-                      onClick={() => handleOpenOrderChat(order)}
-                    >
-                      <MessageSquare size={14} />
-                      {order.status === 'PENDENTE' ? 'Enviar PIX / Chat' : 'Abrir Chat / Rastreio'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {orders.map((order) => {
+                const hasUnread = (order.unreadBuyerMessages ?? 0) > 0;
+                const paidStatus = isPaidOrderStatus(order.status);
+                return (
+                  <tr key={order.id}>
+                    <td style={{ fontSize: '0.85rem', fontFamily: 'monospace', fontWeight: 700, color: 'var(--primary)' }}>
+                      {hasUnread && (
+                        <div style={{ marginBottom: '0.3rem' }}>
+                          <span
+                            onClick={() => handleOpenOrderChat(order)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              background: 'rgba(255, 71, 87, 0.18)',
+                              color: '#ff4757',
+                              border: '1px solid #ff4757',
+                              borderRadius: '999px',
+                              padding: '0.15rem 0.55rem',
+                              fontSize: '0.68rem',
+                              fontWeight: 800,
+                              fontFamily: 'var(--font-sans)',
+                              cursor: 'pointer',
+                              boxShadow: '0 0 10px rgba(255, 71, 87, 0.35)',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <MessageSquare size={11} />
+                            {order.unreadBuyerMessages === 1
+                              ? '1 mensagem não lida'
+                              : `${order.unreadBuyerMessages} mensagens não lidas`}
+                          </span>
+                        </div>
+                      )}
+                      <div>#{order.orderNumber || order.id.substring(0, 8)}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: '#fff' }}>{order.clientName}</div>
+                      {order.customerPhone && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{order.customerPhone}</div>
+                      )}
+                    </td>
+                    <td>{order.createdAt}</td>
+                    <td>
+                      <span
+                        style={{
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: paidStatus ? 'var(--success-glow)' : 'rgba(255, 183, 0, 0.1)',
+                          color: paidStatus ? 'var(--success)' : 'var(--warning)',
+                          border: `1px solid ${
+                            paidStatus ? 'rgba(0, 255, 136, 0.2)' : 'rgba(255, 183, 0, 0.2)'
+                          }`
+                        }}
+                      >
+                        {order.status}
+                      </span>
+                    </td>
+                    <td>
+                      {order.shippingCost === 0
+                        ? 'Retirada (R$ 0,00)'
+                        : order.shippingCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </td>
+                    <td style={{ fontWeight: 700, color: 'var(--success)' }}>
+                      {order.totalAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', position: 'relative' }}
+                        onClick={() => handleOpenOrderChat(order)}
+                      >
+                        <MessageSquare size={14} />
+                        {order.status === 'PENDENTE' ? 'Enviar PIX / Chat' : 'Abrir Chat / Rastreio'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -390,7 +429,10 @@ export const Dashboard: React.FC = () => {
                 }}
               >
                 <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <MapPin size={14} /> Dados de Entrega (Correios)
+                  <MapPin size={14} />{' '}
+                  {selectedOrder.shippingCost === 0
+                    ? 'Dados do Cliente (Retirada com o Vendedor)'
+                    : 'Dados de Entrega (Correios)'}
                 </div>
                 <div><strong>Cliente:</strong> {selectedOrder.clientName} {selectedOrder.clientEmail ? `(${selectedOrder.clientEmail})` : ''}</div>
                 {selectedOrder.customerPhone && <div><strong>Telefone/WhatsApp:</strong> {selectedOrder.customerPhone}</div>}
@@ -442,6 +484,7 @@ export const Dashboard: React.FC = () => {
                   >
                     <option value="PENDENTE">PENDENTE (Aguardando PIX)</option>
                     <option value="PAGO">PAGO (Em Produção 3D)</option>
+                    <option value="AGUARDANDO RETIRADA">AGUARDANDO RETIRADA (Pronto para Retirada)</option>
                     <option value="ENVIADO">ENVIADO (Postado nos Correios)</option>
                     <option value="ENTREGUE">ENTREGUE (Pedido Entregue ao Cliente)</option>
                     <option value="CANCELADO">CANCELADO</option>

@@ -137,6 +137,25 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
     }
   };
 
+  const handleMarkAsAwaitingPickup = async () => {
+    if (updatingStatus) return;
+    setUpdatingStatus(true);
+    try {
+      await api.patch(`/api/admin/orders/${orderId}`, { status: 'AGUARDANDO RETIRADA' });
+      await handleSendMessage(
+        undefined,
+        `📍 Seu pedido #${displayOrderNumber} já está pronto e AGUARDANDO RETIRADA! Podemos combinar o horário de retirada por aqui.`
+      );
+      if (onStatusUpdated) {
+        onStatusUpdated('AGUARDANDO RETIRADA');
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar pedido para AGUARDANDO RETIRADA', e);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const handleMarkAsDelivered = async () => {
     if (updatingStatus) return;
     setUpdatingStatus(true);
@@ -345,7 +364,25 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
             </button>
           )}
 
-          {(orderStatus === 'PAGO' || orderStatus === 'ENVIADO') && (
+          {orderStatus === 'PAGO' && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={updatingStatus}
+              onClick={handleMarkAsAwaitingPickup}
+              style={{
+                padding: '0.45rem 0.85rem',
+                fontSize: '0.8rem',
+                borderColor: 'var(--primary)',
+                color: 'var(--primary)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <CheckCircle size={14} /> Aguardando Retirada
+            </button>
+          )}
+
+          {(orderStatus === 'PAGO' || orderStatus === 'AGUARDANDO RETIRADA' || orderStatus === 'ENVIADO') && (
             <button
               type="button"
               className="btn btn-secondary"

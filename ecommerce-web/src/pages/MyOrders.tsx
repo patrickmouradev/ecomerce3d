@@ -31,6 +31,7 @@ interface Order {
   totalAmount: number;
   trackingCode: string;
   createdAt: string;
+  unreadSellerMessages?: number;
   items: OrderItem[];
 }
 
@@ -123,7 +124,12 @@ export const MyOrders: React.FC = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {orders.map((order) => {
-            const isPaid = order.status === 'PAGO' || order.status === 'ENVIADO' || order.status === 'ENTREGUE';
+            const isPaid =
+              order.status === 'PAGO' ||
+              order.status === 'AGUARDANDO RETIRADA' ||
+              order.status === 'ENVIADO' ||
+              order.status === 'ENTREGUE';
+            const hasUnread = (order.unreadSellerMessages ?? 0) > 0;
             return (
               <div
                 key={order.id}
@@ -136,6 +142,37 @@ export const MyOrders: React.FC = () => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1rem' }}>
                   <div>
+                    {hasUnread && (
+                      <div style={{ marginBottom: '0.3rem' }}>
+                        <span
+                          onClick={() => {
+                            setOrders((prev) =>
+                              prev.map((o) => (o.id === order.id ? { ...o, unreadSellerMessages: 0 } : o))
+                            );
+                            setSelectedChatOrder({ ...order, unreadSellerMessages: 0 });
+                          }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            background: 'rgba(255, 71, 87, 0.18)',
+                            color: '#ff4757',
+                            border: '1px solid #ff4757',
+                            borderRadius: '999px',
+                            padding: '0.15rem 0.55rem',
+                            fontSize: '0.68rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            boxShadow: '0 0 10px rgba(255, 71, 87, 0.35)'
+                          }}
+                        >
+                          <MessageSquare size={11} />
+                          {order.unreadSellerMessages === 1
+                            ? '1 mensagem não lida'
+                            : `${order.unreadSellerMessages} mensagens não lidas`}
+                        </span>
+                      </div>
+                    )}
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                       PEDIDO #{order.orderNumber || order.id.substring(0, 8)}
                     </span>
@@ -173,7 +210,12 @@ export const MyOrders: React.FC = () => {
                       type="button"
                       className="btn btn-primary"
                       style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem' }}
-                      onClick={() => setSelectedChatOrder(order)}
+                      onClick={() => {
+                        setOrders((prev) =>
+                          prev.map((o) => (o.id === order.id ? { ...o, unreadSellerMessages: 0 } : o))
+                        );
+                        setSelectedChatOrder({ ...order, unreadSellerMessages: 0 });
+                      }}
                     >
                       <MessageSquare size={15} />
                       {order.status === 'PENDENTE' ? 'Abrir Chat / Receber PIX' : 'Abrir Chat com Vendedor'}

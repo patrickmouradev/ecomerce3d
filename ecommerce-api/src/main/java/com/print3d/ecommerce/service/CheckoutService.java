@@ -442,6 +442,12 @@ public class CheckoutService {
                 : List.of();
 
         boolean simulated = order.getMercadoPagoPaymentId() != null && order.getMercadoPagoPaymentId().startsWith("SIM-");
+        long unreadBuyer = order.getId() != null
+                ? orderMessageRepository.countByOrderIdAndSenderRoleAndReadFalse(order.getId(), "COMPRADOR")
+                : 0L;
+        long unreadSeller = order.getId() != null
+                ? orderMessageRepository.countByOrderIdAndSenderRoleAndReadFalse(order.getId(), "VENDEDOR")
+                : 0L;
 
         return OrderResponseDto.builder()
                 .id(order.getId().toString())
@@ -461,6 +467,8 @@ public class CheckoutService {
                 .shippingAddress(shippingAddress)
                 .createdAt(order.getCreatedAt() != null ? order.getCreatedAt().format(DatePatterns.DATE_FORMATTER) : "")
                 .simulatedPayment(simulated)
+                .unreadBuyerMessages(unreadBuyer)
+                .unreadSellerMessages(unreadSeller)
                 .items(itemDtos)
                 .build();
     }
@@ -501,7 +509,7 @@ public class CheckoutService {
                 .orElseGet(() -> configuredWhatsappLoja != null ? configuredWhatsappLoja.replaceAll("\\D", "") : "");
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<OrderMessageDto> getOrderMessages(UUID userId, boolean isAdmin, UUID orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
@@ -510,8 +518,18 @@ public class CheckoutService {
             throw new RuntimeException("Acesso negado às mensagens deste pedido");
         }
 
-        return orderMessageRepository.findByOrderIdOrderByCreatedAtAsc(orderId)
-                .stream()
+        List<OrderMessage> messages = orderMessageRepository.findByOrderIdOrderByCreatedAtAsc(orderId);
+        String oppositeRole = isAdmin ? "COMPRADOR" : "VENDEDOR";
+        List<OrderMessage> unreadToMark = messages.stream()
+                .filter(m -> !m.isRead() && oppositeRole.equalsIgnoreCase(m.getSenderRole()))
+                .peek(m -> m.setRead(true))
+                .toList();
+
+        if (!unreadToMark.isEmpty()) {
+            orderMessageRepository.saveAll(unreadToMark);
+        }
+
+        return messages.stream()
                 .map(this::toOrderMessageDto)
                 .toList();
     }
