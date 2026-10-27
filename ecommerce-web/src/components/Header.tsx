@@ -19,7 +19,8 @@ import {
   Menu,
   X,
   LayoutDashboard,
-  Grid
+  Grid,
+  Activity
 } from 'lucide-react';
 import logoImg from '../assets/logo-loja.jpg';
 
@@ -311,12 +312,35 @@ export const Header: React.FC = () => {
                       <DollarSign size={15} style={{ color: 'var(--primary)' }} />
                       Custo Produção
                     </Link>
+
+                    <Link
+                      to="/admin/visitors"
+                      onClick={() => setAdminDropdownOpen(false)}
+                      className="dropdown-item"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.6rem 0.8rem',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text-primary)',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        fontWeight: 500
+                      }}
+                    >
+                      <Activity size={15} style={{ color: 'var(--success)' }} />
+                      Visitantes do Site
+                    </Link>
                   </div>
                 )}
               </div>
 
               <Link to="/admin/dashboard" style={{ fontSize: '0.95rem', fontWeight: 500 }} className="nav-link">
                 Dashboard
+              </Link>
+              <Link to="/admin/visitors" style={{ fontSize: '0.95rem', fontWeight: 500 }} className="nav-link">
+                Visitantes
               </Link>
             </>
           )}
@@ -949,6 +973,25 @@ export const Header: React.FC = () => {
                 >
                   <LayoutDashboard size={17} style={{ color: 'var(--primary)' }} />
                   Painel de Vendas / Chat PIX
+                </Link>
+
+                <Link
+                  to="/admin/visitors"
+                  onClick={() => setMobileMenuOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.7rem 0.85rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: location.pathname === '/admin/visitors' ? 'rgba(0, 255, 136, 0.12)' : 'transparent',
+                    color: location.pathname === '/admin/visitors' ? 'var(--success)' : 'var(--text-primary)',
+                    fontWeight: 600,
+                    fontSize: '0.9rem'
+                  }}
+                >
+                  <Activity size={17} style={{ color: 'var(--success)' }} />
+                  Radar de Visitantes & Acessos
                 </Link>
 
                 {(mobileAdminExpanded || location.pathname.startsWith('/admin/')) && (

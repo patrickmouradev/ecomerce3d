@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { trackSiteEvent } from '../services/analyticsService';
 import {
   Search,
   ArrowUpDown,
@@ -1280,6 +1281,11 @@ export const Catalog: React.FC = () => {
     setSelectedProduct(product);
     setSelectedInitialColor(initialColor);
     setIsDetailModalOpen(true);
+    trackSiteEvent({
+      eventType: 'PRODUCT_VIEW',
+      productId: product.id,
+      productName: product.name
+    });
   };
 
   const handleCloseDetails = () => {
@@ -1318,6 +1324,12 @@ export const Catalog: React.FC = () => {
 
       localStorage.setItem('3dprintpng_cart', JSON.stringify(existingCart));
       window.dispatchEvent(new Event('cart_updated'));
+
+      trackSiteEvent({
+        eventType: 'ADD_TO_CART',
+        productId: product.id,
+        productName: `${quantity}x ${displayName}`
+      });
 
       setToastMessage(`${quantity}x "${displayName}" adicionado ao carrinho!`);
       setTimeout(() => setToastMessage(null), 3500);
