@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Header from './components/Header';
 import Catalog from './pages/Catalog';
 import Checkout from './pages/Checkout';
@@ -13,12 +14,29 @@ import BasicProductionCosts from './pages/admin/BasicProductionCosts';
 import Products from './pages/admin/Products';
 import Accessories from './pages/admin/Accessories';
 import Dashboard from './pages/admin/Dashboard';
+import Visitors from './pages/admin/Visitors';
 import AdminGuard from './components/AdminGuard';
+import { trackSiteEvent } from './services/analyticsService';
+
+function RouteVisitTracker() {
+  const location = useLocation();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    trackSiteEvent({
+      eventType: 'PAGE_VIEW',
+      pagePath: location.pathname
+    });
+  }, [location.pathname, user?.email]);
+
+  return null;
+}
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <RouteVisitTracker />
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
           <Header />
           <main style={{ flex: 1 }}>
@@ -77,6 +95,14 @@ function App() {
                 element={
                   <AdminGuard>
                     <Dashboard />
+                  </AdminGuard>
+                } 
+              />
+              <Route 
+                path="/admin/visitors" 
+                element={
+                  <AdminGuard>
+                    <Visitors />
                   </AdminGuard>
                 } 
               />

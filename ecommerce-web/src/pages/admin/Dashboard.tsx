@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import OrderChatBox from '../../components/OrderChatBox';
 import {
@@ -12,7 +13,8 @@ import {
   X,
   MapPin,
   Truck,
-  Save
+  Save,
+  Activity
 } from 'lucide-react';
 
 interface OrderItem {
@@ -167,15 +169,33 @@ export const Dashboard: React.FC = () => {
           </p>
         </div>
 
-        <button
-          className="btn btn-primary"
-          onClick={handleDownloadReport}
-          disabled={downloadingReport}
-          style={{ display: 'inline-flex', gap: '0.5rem' }}
-        >
-          {downloadingReport ? <Loader className="animate-spin" size={16} /> : <Download size={16} />}
-          Exportar Relatório PDF (Jasper)
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <Link
+            to="/admin/visitors"
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              textDecoration: 'none',
+              borderColor: 'var(--success)',
+              color: 'var(--success)'
+            }}
+          >
+            <Activity size={16} />
+            Ver Quem Acessou o Site
+          </Link>
+
+          <button
+            className="btn btn-primary"
+            onClick={handleDownloadReport}
+            disabled={downloadingReport}
+            style={{ display: 'inline-flex', gap: '0.5rem' }}
+          >
+            {downloadingReport ? <Loader className="animate-spin" size={16} /> : <Download size={16} />}
+            Exportar Relatório PDF (Jasper)
+          </button>
+        </div>
       </div>
 
       {/* Cards de Métricas */}
