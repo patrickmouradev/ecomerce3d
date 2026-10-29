@@ -20,7 +20,8 @@ import {
   X,
   LayoutDashboard,
   Grid,
-  Activity
+  Activity,
+  Star
 } from 'lucide-react';
 import logoImg from '../assets/logo-loja.jpg';
 
@@ -331,6 +332,26 @@ export const Header: React.FC = () => {
                     >
                       <Activity size={15} style={{ color: 'var(--success)' }} />
                       Visitantes do Site
+                    </Link>
+
+                    <Link
+                      to="/admin/reviews"
+                      onClick={() => setAdminDropdownOpen(false)}
+                      className="dropdown-item"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.6rem 0.8rem',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text-primary)',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        fontWeight: 500
+                      }}
+                    >
+                      <Star size={15} style={{ color: '#ffc107' }} />
+                      Avaliações
                     </Link>
                   </div>
                 )}

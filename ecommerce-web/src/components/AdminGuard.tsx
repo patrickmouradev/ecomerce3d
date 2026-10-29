@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 interface AdminGuardProps {
@@ -7,7 +7,8 @@ interface AdminGuardProps {
 }
 
 export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
-  const { activeRole, loading } = useAuth();
+  const { user, activeRole, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -17,6 +18,11 @@ export const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         </p>
       </div>
     );
+  }
+
+  if (!user) {
+    const target = `${location.pathname}${location.search || ''}`;
+    return <Navigate to={`/login?redirect=${encodeURIComponent(target)}`} replace />;
   }
 
   // Permite acesso somente se o perfil ativo for ADMINISTRADOR ou FINANCEIRO

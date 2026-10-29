@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -70,7 +72,8 @@ public class OrderEmailService {
 
         String itemsTableHtml = buildItemsTableHtml(order, shippingServiceName);
         String trackingHtml = buildTrackingHtml(order.getTrackingCode());
-        String fullHtml = buildEmailWrapper(title, messageHtml, statusLabel, statusBgColor, statusBorderColor, statusTextColor, itemsTableHtml, trackingHtml, buttonText, "/my-orders");
+        String targetPath = buildBuyerOrderTargetPath(order, recipientEmail);
+        String fullHtml = buildEmailWrapper(title, messageHtml, statusLabel, statusBgColor, statusBorderColor, statusTextColor, itemsTableHtml, trackingHtml, buttonText, targetPath);
 
         dispatchAsync(new String[]{recipientEmail}, subject, fullHtml, orderNum);
 
@@ -124,6 +127,7 @@ public class OrderEmailService {
 
         String statusLabel = order.getStatus() != null ? order.getStatus().toUpperCase() : "PENDENTE";
         String itemsTableHtml = buildItemsTableHtml(order, deliveryMode);
+        String adminTargetPath = buildAdminOrderTargetPath(order);
         String fullHtml = buildEmailWrapper(
                 title,
                 messageHtml,
@@ -134,7 +138,7 @@ public class OrderEmailService {
                 itemsTableHtml,
                 "",
                 "Abrir Painel Administrativo (Dashboard)",
-                "/admin"
+                adminTargetPath
         );
 
         dispatchAsync(ADMIN_NOTIFICATION_EMAILS, subject, fullHtml, orderNum);
@@ -160,6 +164,22 @@ public class OrderEmailService {
                 ? order.getCustomerPhone().trim()
                 : "-";
         String messageText = buyerMessage.getMessage() != null ? buyerMessage.getMessage().trim() : "";
+        String attachmentBlockHtml = "";
+        if (buyerMessage.getAttachmentUrl() != null && !buyerMessage.getAttachmentUrl().isBlank()) {
+            String cleanBaseUrl = frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "https://3dprintpng.com.br";
+            String attachmentFullUrl = cleanBaseUrl + buyerMessage.getAttachmentUrl();
+            String attachName = buyerMessage.getAttachmentName() != null && !buyerMessage.getAttachmentName().isBlank()
+                    ? buyerMessage.getAttachmentName()
+                    : "Visualizar Anexo";
+            attachmentBlockHtml = String.format(
+                    "<div style=\"margin-top:10px;padding-top:10px;border-top:1px solid rgba(0, 240, 255, 0.25);font-size:13px;\">" +
+                    "  📎 <strong>Anexo enviado:</strong> <a href=\"%s\" target=\"_blank\" style=\"color:#00f0ff;text-decoration:underline;\">%s</a>" +
+                    "</div>",
+                    escapeHtml(attachmentFullUrl),
+                    escapeHtml(attachName)
+            );
+        }
+        String displayMessageBody = !messageText.isEmpty() ? escapeHtml(messageText) : "<em>(Anexo enviado sem texto)</em>";
 
         String subject = String.format("3DPrintPNG - [MENSAGEM NO CHAT] Pedido #%s — %s", orderNum, clientFullName);
         String title = String.format("Nova Mensagem de Cliente — Pedido #%s 💬", orderNum);
@@ -169,6 +189,7 @@ public class OrderEmailService {
                 "<div style=\"background:rgba(0, 240, 255, 0.08);border-left:4px solid #00f0ff;border-radius:8px;padding:16px 18px;margin:16px 0;\">" +
                 "  <div style=\"font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#00f0ff;font-weight:800;margin-bottom:6px;\">Mensagem do Cliente</div>" +
                 "  <div style=\"font-size:15px;color:#ffffff;white-space:pre-wrap;line-height:1.5;\">%s</div>" +
+                "  %s" +
                 "</div>" +
                 "<div style=\"background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 18px;margin:14px 0;\">" +
                 "  <div style=\"font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#8b949e;font-weight:700;margin-bottom:6px;\">Dados do Cliente</div>" +
@@ -178,7 +199,8 @@ public class OrderEmailService {
                 "</div>",
                 escapeHtml(clientFullName),
                 orderNum,
-                escapeHtml(messageText),
+                displayMessageBody,
+                attachmentBlockHtml,
                 escapeHtml(clientFullName),
                 escapeHtml(clientEmail),
                 escapeHtml(clientPhone)
@@ -186,6 +208,7 @@ public class OrderEmailService {
 
         String statusLabel = order.getStatus() != null ? order.getStatus().toUpperCase() : "PENDENTE";
         String itemsTableHtml = buildItemsTableHtml(order, null);
+        String adminTargetPath = buildAdminOrderTargetPath(order);
         String fullHtml = buildEmailWrapper(
                 title,
                 messageHtml,
@@ -196,7 +219,7 @@ public class OrderEmailService {
                 itemsTableHtml,
                 buildTrackingHtml(order.getTrackingCode()),
                 "Responder Cliente no Dashboard",
-                "/admin"
+                adminTargetPath
         );
 
         dispatchAsync(ADMIN_NOTIFICATION_EMAILS, subject, fullHtml, orderNum);
@@ -312,9 +335,30 @@ public class OrderEmailService {
 
         String itemsTableHtml = buildItemsTableHtml(order, null);
         String trackingHtml = buildTrackingHtml(order.getTrackingCode());
-        String fullHtml = buildEmailWrapper(title, messageHtml, statusLabel, statusBgColor, statusBorderColor, statusTextColor, itemsTableHtml, trackingHtml, buttonText, "/my-orders");
+        String targetPath = buildBuyerOrderTargetPath(order, recipientEmail);
+        String fullHtml = buildEmailWrapper(title, messageHtml, statusLabel, statusBgColor, statusBorderColor, statusTextColor, itemsTableHtml, trackingHtml, buttonText, targetPath);
 
         dispatchAsync(new String[]{recipientEmail}, subject, fullHtml, orderNum);
+    }
+
+    private String buildBuyerOrderTargetPath(Order order, String recipientEmail) {
+        StringBuilder sb = new StringBuilder("/my-orders");
+        boolean hasQuery = false;
+        if (order != null && order.getId() != null) {
+            sb.append("?orderId=").append(URLEncoder.encode(order.getId().toString(), StandardCharsets.UTF_8));
+            hasQuery = true;
+        }
+        if (recipientEmail != null && !recipientEmail.isBlank()) {
+            sb.append(hasQuery ? "&" : "?").append("email=").append(URLEncoder.encode(recipientEmail.trim(), StandardCharsets.UTF_8));
+        }
+        return sb.toString();
+    }
+
+    private String buildAdminOrderTargetPath(Order order) {
+        if (order != null && order.getId() != null) {
+            return "/admin/dashboard?orderId=" + URLEncoder.encode(order.getId().toString(), StandardCharsets.UTF_8);
+        }
+        return "/admin/dashboard";
     }
 
     private String buildItemsTableHtml(Order order, String shippingServiceName) {

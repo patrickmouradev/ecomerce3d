@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { trackSiteEvent } from '../services/analyticsService';
+import { reviewService } from '../services/reviewService';
+import type { ProductReviewsPage } from '../services/reviewService';
 import {
   Search,
   ArrowUpDown,
@@ -17,7 +19,8 @@ import {
   ShieldCheck,
   Truck,
   Package,
-  Sparkles
+  Sparkles,
+  Star
 } from 'lucide-react';
 
 interface Product {
@@ -35,6 +38,8 @@ interface Product {
     pricePerKg: number;
   }[];
   imagesVideosPaths: string[];
+  ratingAverage?: number;
+  reviewsCount?: number;
 }
 
 interface Banner {
@@ -285,7 +290,7 @@ const ProductCard: React.FC<{
           style={{
             fontSize: '1.15rem',
             color: '#fff',
-            marginBottom: '0.5rem',
+            marginBottom: '0.35rem',
             lineHeight: 1.3,
             display: '-webkit-box',
             WebkitLineClamp: 2,
@@ -295,6 +300,25 @@ const ProductCard: React.FC<{
         >
           {product.name}
         </h3>
+
+        {/* Estrelas no Card (Apenas se houver avaliações habilitadas) */}
+        {Boolean(product.ratingAverage && product.ratingAverage > 0 && product.reviewsCount && product.reviewsCount > 0) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.45rem' }}>
+            <div style={{ display: 'flex', gap: '0.1rem' }}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star
+                  key={s}
+                  size={12}
+                  fill={(product.ratingAverage || 0) >= s ? '#ffc107' : 'none'}
+                  color={(product.ratingAverage || 0) >= s ? '#ffc107' : 'rgba(255, 255, 255, 0.2)'}
+                />
+              ))}
+            </div>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+              {product.ratingAverage} ({product.reviewsCount})
+            </span>
+          </div>
+        )}
         <p
           style={{
             fontSize: '0.85rem',
@@ -413,11 +437,13 @@ const ProductDetailModal: React.FC<{
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [addedAnimation, setAddedAnimation] = useState(false);
+  const [reviewsData, setReviewsData] = useState<ProductReviewsPage | null>(null);
 
   useEffect(() => {
     setSelectedMediaIndex(0);
     setQuantity(1);
     setAddedAnimation(false);
+    setReviewsData(null);
     if (product) {
       if (initialColor && product.availableColors?.includes(initialColor)) {
         setSelectedColor(initialColor);
@@ -426,6 +452,11 @@ const ProductDetailModal: React.FC<{
       } else {
         setSelectedColor('');
       }
+
+      // Busca avaliações se estiverem ativas para a loja
+      reviewService.getProductReviews(product.id)
+        .then((res) => setReviewsData(res))
+        .catch(() => setReviewsData(null));
     }
   }, [product, initialColor]);
 
@@ -986,6 +1017,102 @@ const ProductDetailModal: React.FC<{
             </div>
           </div>
         </div>
+
+        {/* Seção de Avaliações Reais de Clientes (Apenas se ativada pela loja e com mínimo atingido) */}
+        {reviewsData && reviewsData.enabled && reviewsData.reviews.length > 0 && (
+          <div style={{ borderTop: '1px solid var(--border-color)', padding: '1.5rem 1.75rem', background: '#080a0e' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Star size={18} fill="#ffc107" color="#ffc107" />
+                  Avaliações de Clientes ({reviewsData.totalReviews})
+                </h3>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Média de {reviewsData.averageRating} de 5 estrelas
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {reviewsData.reviews.map((rev) => (
+                <div
+                  key={rev.id}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    padding: '1rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{rev.authorName}</strong>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>• {rev.createdAt}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.15rem' }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          size={13}
+                          fill={rev.rating >= s ? '#ffc107' : 'none'}
+                          color={rev.rating >= s ? '#ffc107' : 'rgba(255, 255, 255, 0.2)'}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {rev.comment && (
+                    <p style={{ margin: '0 0 0.6rem', color: 'var(--text-primary)', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                      {rev.comment}
+                    </p>
+                  )}
+
+                  {/* Fotos enviadas pelo cliente */}
+                  {rev.photosUrls && rev.photosUrls.length > 0 && (
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                      {rev.photosUrls.map((pUrl, pIdx) => (
+                        <img
+                          key={pIdx}
+                          src={pUrl}
+                          alt="Foto do cliente"
+                          style={{
+                            width: '70px',
+                            height: '70px',
+                            borderRadius: '6px',
+                            objectFit: 'cover',
+                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => window.open(pUrl, '_blank')}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Resposta Oficial da Loja */}
+                  {rev.adminReply && (
+                    <div
+                      style={{
+                        marginTop: '0.75rem',
+                        padding: '0.65rem 0.85rem',
+                        borderRadius: '6px',
+                        background: 'rgba(0, 240, 255, 0.05)',
+                        borderLeft: '3px solid var(--primary)',
+                        fontSize: '0.82rem'
+                      }}
+                    >
+                      <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: '0.2rem' }}>
+                        Resposta da 3DPrintPNG:
+                      </strong>
+                      <span style={{ color: 'var(--text-secondary)' }}>{rev.adminReply}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

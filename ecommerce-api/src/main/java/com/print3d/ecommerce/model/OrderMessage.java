@@ -34,7 +34,17 @@ public class OrderMessage {
     private String senderRole; // COMPRADOR ou VENDEDOR
 
     @Column(name = "message", nullable = false, columnDefinition = "TEXT")
-    private String message;
+    @Builder.Default
+    private String message = "";
+
+    @Column(name = "attachment_url", length = 500)
+    private String attachmentUrl;
+
+    @Column(name = "attachment_name", length = 255)
+    private String attachmentName;
+
+    @Column(name = "attachment_type", length = 100)
+    private String attachmentType;
 
     @Column(name = "is_read", nullable = false)
     @Builder.Default

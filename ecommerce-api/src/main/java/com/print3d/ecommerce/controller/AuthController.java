@@ -14,7 +14,10 @@ import com.print3d.ecommerce.security.TokenProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -106,7 +109,69 @@ public class AuthController {
                 .roles(roles)
                 .build();
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(response);
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Valida a sessão atual do usuário e renova o token JWT por mais 3600 segundos")
+    public ResponseEntity<LoginResponseDto> me() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .cacheControl(CacheControl.noStore())
+                    .build();
+        }
+
+        try {
+            String userIdStr = (String) auth.getPrincipal();
+            UUID userId = UUID.fromString(userIdStr);
+
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .cacheControl(CacheControl.noStore())
+                        .build();
+            }
+
+            List<String> roles = user.getRoles().stream()
+                    .map(Role::getName)
+                    .toList();
+
+            String currentRole = null;
+            if (auth.getAuthorities() != null) {
+                for (GrantedAuthority ga : auth.getAuthorities()) {
+                    String authority = ga.getAuthority();
+                    if (authority != null && authority.startsWith("ROLE_")) {
+                        currentRole = authority.substring(5);
+                        break;
+                    }
+                }
+            }
+
+            String resolvedRole = (currentRole != null && roles.contains(currentRole))
+                    ? currentRole
+                    : selectDefaultRole(roles);
+
+            String renewedToken = tokenProvider.generateToken(user, resolvedRole);
+
+            LoginResponseDto response = LoginResponseDto.builder()
+                    .token(renewedToken)
+                    .name(user.getName())
+                    .email(user.getEmail())
+                    .activeRole(resolvedRole)
+                    .roles(roles)
+                    .build();
+
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .body(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .cacheControl(CacheControl.noStore())
+                    .build();
+        }
     }
 
     @PostMapping("/switch-profile")

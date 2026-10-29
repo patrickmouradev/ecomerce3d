@@ -15,6 +15,7 @@ import Products from './pages/admin/Products';
 import Accessories from './pages/admin/Accessories';
 import Dashboard from './pages/admin/Dashboard';
 import Visitors from './pages/admin/Visitors';
+import Reviews from './pages/admin/Reviews';
 import AdminGuard from './components/AdminGuard';
 import { trackSiteEvent } from './services/analyticsService';
 
@@ -91,6 +92,14 @@ function App() {
                 } 
               />
               <Route 
+                path="/admin" 
+                element={
+                  <AdminGuard>
+                    <Dashboard />
+                  </AdminGuard>
+                } 
+              />
+              <Route 
                 path="/admin/dashboard" 
                 element={
                   <AdminGuard>
@@ -103,6 +112,14 @@ function App() {
                 element={
                   <AdminGuard>
                     <Visitors />
+                  </AdminGuard>
+                } 
+              />
+              <Route 
+                path="/admin/reviews" 
+                element={
+                  <AdminGuard>
+                    <Reviews />
                   </AdminGuard>
                 } 
               />
