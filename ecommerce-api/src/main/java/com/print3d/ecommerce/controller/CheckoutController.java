@@ -10,10 +10,12 @@ import com.print3d.ecommerce.service.CheckoutService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -94,15 +96,32 @@ public class CheckoutController {
         return ResponseEntity.ok(checkoutService.getOrderMessages(userId, isAdmin, orderId));
     }
 
-    @PostMapping("/orders/{orderId}/messages")
+    @PostMapping(value = "/orders/{orderId}/messages", consumes = MediaType.APPLICATION_JSON_VALUE)
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Envia uma mensagem no chat do pedido como comprador")
+    @Operation(summary = "Envia uma mensagem de texto no chat do pedido como comprador")
     public ResponseEntity<?> sendBuyerMessage(@PathVariable UUID orderId, @RequestBody Map<String, String> payload) {
         try {
             UUID userId = getAuthenticatedUserId();
             boolean isAdmin = hasAdminRole();
             String message = payload.get("message");
-            OrderMessageDto saved = checkoutService.sendOrderMessage(userId, false, isAdmin, orderId, message);
+            OrderMessageDto saved = checkoutService.sendOrderMessage(userId, false, isAdmin, orderId, message, null);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/orders/{orderId}/messages", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Envia uma mensagem com anexo (foto ou PDF) no chat do pedido como comprador")
+    public ResponseEntity<?> sendBuyerMessageWithAttachment(
+            @PathVariable UUID orderId,
+            @RequestParam(value = "message", required = false) String message,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
+        try {
+            UUID userId = getAuthenticatedUserId();
+            boolean isAdmin = hasAdminRole();
+            OrderMessageDto saved = checkoutService.sendOrderMessage(userId, false, isAdmin, orderId, message, file);
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));

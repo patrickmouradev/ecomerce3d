@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -93,7 +94,7 @@ public class OrderController {
         return ResponseEntity.ok(checkoutService.getOrderMessages(userId, true, orderId));
     }
 
-    @PostMapping("/{orderId}/messages")
+    @PostMapping(value = "/{orderId}/messages", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Envia uma mensagem no chat do pedido como VENDEDOR (ex: enviar chave PIX)")
     public ResponseEntity<?> sendSellerMessage(
             @PathVariable UUID orderId,
@@ -101,7 +102,22 @@ public class OrderController {
         try {
             UUID userId = getCurrentUserId();
             String message = payload.get("message");
-            OrderMessageDto saved = checkoutService.sendOrderMessage(userId, true, true, orderId, message);
+            OrderMessageDto saved = checkoutService.sendOrderMessage(userId, true, true, orderId, message, null);
+            return ResponseEntity.ok(saved);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/{orderId}/messages", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Envia uma mensagem com anexo (foto ou PDF) no chat do pedido como VENDEDOR")
+    public ResponseEntity<?> sendSellerMessageWithAttachment(
+            @PathVariable UUID orderId,
+            @RequestParam(value = "message", required = false) String message,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
+        try {
+            UUID userId = getCurrentUserId();
+            OrderMessageDto saved = checkoutService.sendOrderMessage(userId, true, true, orderId, message, file);
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));

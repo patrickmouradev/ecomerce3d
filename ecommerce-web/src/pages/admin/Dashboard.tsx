@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import OrderChatBox from '../../components/OrderChatBox';
 import {
@@ -54,6 +54,9 @@ interface Order {
 export const Dashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+  const orderIdParam = searchParams.get('orderId');
+  const autoOpenedOrderRef = useRef<string | null>(null);
 
   // Ordenação
   const [sortBy, setSortBy] = useState('createdAt');
@@ -74,6 +77,16 @@ export const Dashboard: React.FC = () => {
     }, 8000);
     return () => clearInterval(interval);
   }, [sortBy, direction]);
+
+  useEffect(() => {
+    if (orderIdParam && orders.length > 0 && autoOpenedOrderRef.current !== orderIdParam) {
+      const targetOrder = orders.find((o) => o.id === orderIdParam);
+      if (targetOrder) {
+        autoOpenedOrderRef.current = orderIdParam;
+        handleOpenOrderChat(targetOrder);
+      }
+    }
+  }, [orderIdParam, orders]);
 
   const fetchOrders = async (silent = false) => {
     if (!silent) setLoading(true);

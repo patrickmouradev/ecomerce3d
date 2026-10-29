@@ -4,24 +4,31 @@ import { useAuth } from '../context/AuthContext';
 import { LogIn, User, Mail, Lock, ArrowLeft } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { user, loginLocal, registerLocal } = useAuth();
+  const { user, loading: authLoading, loginLocal, registerLocal, logout } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectPath = searchParams.get('redirect') || '/';
+  const expectedEmail = searchParams.get('email') || '';
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(expectedEmail);
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Redireciona para destino (ou home) se já estiver logado
+  // Redireciona para destino (ou home) se já estiver logado com a conta esperada
   useEffect(() => {
+    if (authLoading) return;
     if (user) {
-      navigate(redirectPath);
+      if (expectedEmail && user.email.trim().toLowerCase() !== expectedEmail.trim().toLowerCase()) {
+        logout();
+        setEmail(expectedEmail);
+        return;
+      }
+      navigate(redirectPath, { replace: true });
     }
-  }, [user, navigate, redirectPath]);
+  }, [user, authLoading, expectedEmail, logout, navigate, redirectPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

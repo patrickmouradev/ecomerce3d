@@ -10,7 +10,12 @@ import {
   CheckCircle,
   ExternalLink,
   User as UserIcon,
-  ShieldCheck
+  ShieldCheck,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  X,
+  Download
 } from 'lucide-react';
 
 export interface OrderMessageItem {
@@ -20,6 +25,9 @@ export interface OrderMessageItem {
   senderName: string;
   senderRole: 'COMPRADOR' | 'VENDEDOR';
   message: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  attachmentType?: 'IMAGE' | 'PDF' | string | null;
   createdAt: string;
 }
 
@@ -37,6 +45,9 @@ interface OrderChatBoxProps {
   onStatusUpdated?: (newStatus: string) => void;
 }
 
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+
 export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
   orderId,
   orderNumber,
@@ -53,12 +64,17 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
   const displayOrderNumber = orderNumber ? String(orderNumber) : orderId.substring(0, 8);
   const [messages, setMessages] = useState<OrderMessageItem[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string>('');
+  const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [pixKeyInput, setPixKeyInput] = useState(() => localStorage.getItem('3dprintpng_seller_pix_key') || '21958651800');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const endpoint =
     mode === 'seller'
@@ -91,20 +107,88 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
+  useEffect(() => {
+    return () => {
+      if (filePreviewUrl) {
+        URL.revokeObjectURL(filePreviewUrl);
+      }
+    };
+  }, [filePreviewUrl]);
+
+  const clearSelectedFile = () => {
+    if (filePreviewUrl) {
+      URL.revokeObjectURL(filePreviewUrl);
+    }
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const lowerName = file.name.toLowerCase();
+    const hasAllowedExt = ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+    if (!hasAllowedExt) {
+      setUploadError('Formato inválido. Selecione uma foto (JPG, PNG, WEBP) ou arquivo PDF.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setUploadError('O arquivo excede o limite máximo de 10 MB.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    if (filePreviewUrl) {
+      URL.revokeObjectURL(filePreviewUrl);
+    }
+
+    setSelectedFile(file);
+    if (file.type.startsWith('image/') && !lowerName.endsWith('.pdf')) {
+      setFilePreviewUrl(URL.createObjectURL(file));
+    } else {
+      setFilePreviewUrl(null);
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent, customText?: string) => {
     if (e) e.preventDefault();
     const textToSend = (customText ?? newMessage).trim();
-    if (!textToSend || sending) return;
+    const fileToSend = customText !== undefined ? null : selectedFile;
+
+    if ((!textToSend && !fileToSend) || sending) return;
 
     setSending(true);
+    setUploadError('');
     try {
-      const res = await api.post(endpoint, { message: textToSend });
-      setMessages((prev) => [...prev, res.data]);
-      if (!customText) {
-        setNewMessage('');
+      let res;
+      if (fileToSend) {
+        const formData = new FormData();
+        if (textToSend) {
+          formData.append('message', textToSend);
+        }
+        formData.append('file', fileToSend);
+        res = await api.post(endpoint, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        res = await api.post(endpoint, { message: textToSend });
       }
-    } catch (err) {
+
+      setMessages((prev) => [...prev, res.data]);
+      if (customText === undefined) {
+        setNewMessage('');
+        clearSelectedFile();
+      }
+    } catch (err: any) {
       console.error('Erro ao enviar mensagem', err);
+      setUploadError(err?.response?.data?.message || 'Não foi possível enviar a mensagem/anexo.');
     } finally {
       setSending(false);
     }
@@ -114,7 +198,7 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
     const cleanKey = pixKeyInput.trim() || '21958651800';
     localStorage.setItem('3dprintpng_seller_pix_key', cleanKey);
     const formattedTotal = orderTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const msg = `Segue os dados para pagamento via PIX do seu pedido #${displayOrderNumber} (${formattedTotal}):\n\nChave : ${cleanKey}\nTitular : Patrick Jose de Moura\n\nAssim que realizar o pagamento, me avise por aqui para iniciarmos a impressão 3D!`;
+    const msg = `Segue os dados para pagamento via PIX do seu pedido #${displayOrderNumber} (${formattedTotal}):\n\nChave : ${cleanKey}\nTitular : Patrick Jose de Moura\n\nAssim que realizar o pagamento, me avise por aqui (você também pode anexar o comprovante em foto ou PDF)!`;
     handleSendMessage(undefined, msg);
   };
 
@@ -213,6 +297,11 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
     }
   };
 
+  const isPdfAttachment = (msg: OrderMessageItem): boolean => {
+    if (msg.attachmentType === 'PDF') return true;
+    return Boolean(msg.attachmentUrl && msg.attachmentUrl.toLowerCase().endsWith('.pdf'));
+  };
+
   return (
     <div
       className="glass-panel"
@@ -274,7 +363,7 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
             </div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
               {mode === 'buyer'
-                ? 'Converse diretamente com o vendedor para receber a chave PIX'
+                ? 'Converse com o vendedor e anexe fotos ou comprovante PDF'
                 : `Conversa direta com o comprador ${clientName || ''}`}
             </div>
           </div>
@@ -420,13 +509,15 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
           </div>
         ) : messages.length === 0 ? (
           <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-            Nenhuma mensagem ainda. Envie uma mensagem abaixo para iniciar!
+            Nenhuma mensagem ainda. Envie uma mensagem ou anexe um arquivo abaixo para iniciar!
           </div>
         ) : (
           messages.map((msg) => {
             const isSeller = msg.senderRole === 'VENDEDOR';
             const isOwnMessage =
               (mode === 'seller' && isSeller) || (mode === 'buyer' && !isSeller);
+            const hasAttachment = Boolean(msg.attachmentUrl);
+            const isPdf = isPdfAttachment(msg);
 
             return (
               <div
@@ -472,10 +563,85 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
                     wordBreak: 'break-word'
                   }}
                 >
-                  {msg.message}
+                  {msg.message && <div>{msg.message}</div>}
+
+                  {/* Renderização de Anexo (Foto ou PDF) */}
+                  {hasAttachment && msg.attachmentUrl && (
+                    <div style={{ marginTop: msg.message ? '0.6rem' : 0 }}>
+                      {isPdf ? (
+                        <a
+                          href={msg.attachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.65rem',
+                            padding: '0.6rem 0.85rem',
+                            borderRadius: '8px',
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            border: '1px solid rgba(0, 240, 255, 0.35)',
+                            color: '#fff',
+                            textDecoration: 'none',
+                            fontSize: '0.82rem'
+                          }}
+                        >
+                          <FileText size={20} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {msg.attachmentName || 'Comprovante / Documento.pdf'}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--primary)' }}>
+                              Clique para abrir ou baixar PDF
+                            </div>
+                          </div>
+                          <Download size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                        </a>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <img
+                            src={msg.attachmentUrl}
+                            alt={msg.attachmentName || 'Foto anexada'}
+                            onClick={() => setLightboxImageUrl(msg.attachmentUrl || null)}
+                            style={{
+                              maxWidth: '240px',
+                              maxHeight: '220px',
+                              borderRadius: '8px',
+                              border: '1px solid rgba(255, 255, 255, 0.15)',
+                              objectFit: 'cover',
+                              cursor: 'pointer'
+                            }}
+                          />
+                          <a
+                            href={msg.attachmentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize: '0.72rem',
+                              color: 'var(--primary)',
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem'
+                            }}
+                          >
+                            <ExternalLink size={11} />
+                            {msg.attachmentName || 'Abrir imagem em tamanho original'}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Botão rápido para copiar texto (útil quando o vendedor envia a chave PIX) */}
-                  {isSeller && mode === 'buyer' && (
+                  {isSeller && mode === 'buyer' && msg.message && (
                     <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
                       <button
                         type="button"
@@ -507,7 +673,96 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Campo de Envio de Nova Mensagem */}
+      {/* Barra de Pré-visualização de Arquivo Selecionado ou Erro */}
+      {(selectedFile || uploadError) && (
+        <div
+          style={{
+            padding: '0.6rem 1rem',
+            background: 'rgba(0, 240, 255, 0.05)',
+            borderTop: '1px solid var(--border-color)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.4rem'
+          }}
+        >
+          {uploadError && (
+            <div style={{ color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600 }}>
+              {uploadError}
+            </div>
+          )}
+
+          {selectedFile && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+                background: 'rgba(0, 0, 0, 0.35)',
+                border: '1px solid rgba(0, 240, 255, 0.3)',
+                borderRadius: '8px',
+                padding: '0.45rem 0.75rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                {filePreviewUrl ? (
+                  <img
+                    src={filePreviewUrl}
+                    alt="Preview"
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '6px',
+                      objectFit: 'cover',
+                      border: '1px solid var(--primary)'
+                    }}
+                  />
+                ) : selectedFile.name.toLowerCase().endsWith('.pdf') ? (
+                  <FileText size={20} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                ) : (
+                  <ImageIcon size={20} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      color: '#fff',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {selectedFile.name}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                    {(selectedFile.size / 1024).toFixed(1)} KB • Pronto para enviar
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={clearSelectedFile}
+                title="Remover anexo"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '0.2rem'
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Campo de Envio de Nova Mensagem + Anexo */}
       <form
         onSubmit={(e) => handleSendMessage(e)}
         style={{
@@ -520,13 +775,41 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
           alignItems: 'center'
         }}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+          onChange={handleFileChange}
+          style={{ display: 'none' }}
+        />
+
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending}
+          title="Anexar foto (JPG, PNG, WEBP) ou PDF (máx. 10 MB)"
+          style={{
+            padding: '0.65rem 0.8rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.35rem',
+            borderColor: selectedFile ? 'var(--primary)' : 'var(--border-color)',
+            color: selectedFile ? 'var(--primary)' : 'var(--text-primary)'
+          }}
+        >
+          <Paperclip size={16} />
+          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Foto / PDF</span>
+        </button>
+
         <textarea
           rows={2}
           className="form-input"
           placeholder={
             mode === 'buyer'
-              ? 'Digite sua mensagem para o vendedor (ex: pedir chave PIX, avisar que pagou, dúvidas)...'
-              : 'Digite a mensagem ou envie a chave PIX para o comprador...'
+              ? 'Digite sua mensagem ou anexe o comprovante PIX / foto / PDF...'
+              : 'Digite a mensagem, envie a chave PIX ou anexe uma foto/PDF...'
           }
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
@@ -537,7 +820,7 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
             }
           }}
           style={{
-            flex: '1 1 200px',
+            flex: '1 1 180px',
             resize: 'none',
             fontSize: '0.88rem',
             padding: '0.6rem 0.85rem'
@@ -546,7 +829,7 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
         <button
           type="submit"
           className="btn btn-primary"
-          disabled={sending || !newMessage.trim()}
+          disabled={sending || (!newMessage.trim() && !selectedFile)}
           style={{
             padding: '0.7rem 1.1rem',
             fontWeight: 700,
@@ -561,6 +844,54 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
           {sending ? 'Enviando...' : 'Enviar'}
         </button>
       </form>
+
+      {/* Modal de Visualização Ampliada de Foto */}
+      {lightboxImageUrl && (
+        <div
+          onClick={() => setLightboxImageUrl(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.88)',
+            zIndex: 3500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.5rem'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxImageUrl(null)}
+              className="btn btn-secondary"
+              style={{
+                position: 'absolute',
+                top: '-2.5rem',
+                right: 0,
+                padding: '0.35rem 0.7rem',
+                fontSize: '0.8rem'
+              }}
+            >
+              <X size={15} /> Fechar
+            </button>
+            <img
+              src={lightboxImageUrl}
+              alt="Visualização ampliada"
+              style={{
+                maxWidth: '90vw',
+                maxHeight: '85vh',
+                borderRadius: '10px',
+                border: '1px solid var(--primary)',
+                objectFit: 'contain'
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

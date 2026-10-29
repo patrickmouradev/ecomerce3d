@@ -16,5 +16,8 @@ public class OrderMessageDto {
     private String senderName;
     private String senderRole; // COMPRADOR ou VENDEDOR
     private String message;
+    private String attachmentUrl;
+    private String attachmentName;
+    private String attachmentType;
     private String createdAt;
 }

@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import OrderChatBox from '../components/OrderChatBox';
+import { ReviewModal } from '../components/ReviewModal';
+import { reviewService } from '../services/reviewService';
+import type { ProductReviewItem } from '../services/reviewService';
 import {
   Package,
   Clock,
@@ -11,7 +14,8 @@ import {
   MessageSquare,
   RefreshCw,
   ArrowLeft,
-  X
+  X,
+  Star
 } from 'lucide-react';
 
 interface OrderItem {
@@ -36,22 +40,72 @@ interface Order {
 }
 
 export const MyOrders: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const orderIdParam = searchParams.get('orderId');
+  const emailParam = searchParams.get('email');
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChatOrder, setSelectedChatOrder] = useState<Order | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState<string>('');
+  const [myReviews, setMyReviews] = useState<ProductReviewItem[]>([]);
+  const [reviewingTarget, setReviewingTarget] = useState<{ orderId: string; productId: string; productName: string } | null>(null);
+  const autoOpenedOrderRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+
+    const targetRedirect = orderIdParam ? `/my-orders?orderId=${encodeURIComponent(orderIdParam)}` : '/my-orders';
+    const emailQuery = emailParam ? `&email=${encodeURIComponent(emailParam)}` : '';
+
     if (!user) {
-      navigate('/login?redirect=/my-orders');
+      navigate(`/login?redirect=${encodeURIComponent(targetRedirect)}${emailQuery}`, { replace: true });
       return;
     }
-    fetchMyOrders();
+
+    // Se o link do e-mail pertence a outro cliente diferente do que estava logado no navegador, desloga e pede o login correto
+    if (emailParam && user.email.trim().toLowerCase() !== emailParam.trim().toLowerCase()) {
+      logout();
+      navigate(`/login?redirect=${encodeURIComponent(targetRedirect)}${emailQuery}`, { replace: true });
+      return;
+    }
+
+    fetchMyOrders(false);
     fetchConfig();
-  }, [user]);
+    fetchMyReviews();
+
+    const interval = setInterval(() => {
+      fetchMyOrders(true);
+    }, 10000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchMyOrders(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [user, authLoading, orderIdParam, emailParam]);
+
+  // Abre automaticamente o pedido/chat quando o cliente vem pelo link do e-mail (?orderId=...)
+  useEffect(() => {
+    if (orderIdParam && orders.length > 0 && autoOpenedOrderRef.current !== orderIdParam) {
+      const targetOrder = orders.find((o) => o.id === orderIdParam);
+      if (targetOrder) {
+        autoOpenedOrderRef.current = orderIdParam;
+        setOrders((prev) =>
+          prev.map((o) => (o.id === targetOrder.id ? { ...o, unreadSellerMessages: 0 } : o))
+        );
+        setSelectedChatOrder({ ...targetOrder, unreadSellerMessages: 0 });
+      }
+    }
+  }, [orderIdParam, orders]);
 
   const fetchConfig = async () => {
     try {
@@ -64,15 +118,31 @@ export const MyOrders: React.FC = () => {
     }
   };
 
-  const fetchMyOrders = async () => {
-    setLoading(true);
+  const fetchMyReviews = async () => {
+    try {
+      const list = await reviewService.getMyReviews();
+      setMyReviews(list);
+    } catch {
+      // Ignore
+    }
+  };
+
+  const fetchMyOrders = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await api.get('/api/checkout/my-orders');
-      setOrders(res.data);
+      if (Array.isArray(res.data)) {
+        setOrders(res.data);
+        setSelectedChatOrder((prev) => {
+          if (!prev) return null;
+          const updated = res.data.find((o: Order) => o.id === prev.id);
+          return updated ? { ...updated, unreadSellerMessages: 0 } : prev;
+        });
+      }
     } catch (e) {
       console.error('Erro ao buscar pedidos do cliente', e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -103,7 +173,7 @@ export const MyOrders: React.FC = () => {
             Acompanhe seus pedidos, converse com o vendedor para pagamento PIX e veja o rastreio Correios
           </p>
         </div>
-        <button type="button" className="btn btn-secondary" onClick={fetchMyOrders}>
+        <button type="button" className="btn btn-secondary" onClick={() => fetchMyOrders(false)}>
           <RefreshCw size={15} /> Atualizar Lista
         </button>
       </div>
@@ -224,15 +294,81 @@ export const MyOrders: React.FC = () => {
                 </div>
 
                 {/* Lista de Itens do Pedido */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-                  {order.items?.map((item, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                      <span>
-                        <strong>{item.quantity}x</strong> {item.productName}
-                      </span>
-                      <span>{(item.price * item.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                    </div>
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1rem' }}>
+                  {order.items?.map((item, idx) => {
+                    const hasReviewed = myReviews.some(
+                      (r) => r.orderId === order.id && (r.productId === item.id || r.productName === item.productName)
+                    );
+                    const isDelivered = order.status === 'ENTREGUE';
+
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          fontSize: '0.9rem',
+                          flexWrap: 'wrap',
+                          gap: '0.5rem'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                          <span>
+                            <strong>{item.quantity}x</strong> {item.productName}
+                          </span>
+
+                          {/* Botão de Avaliação se o pedido estiver ENTREGUE */}
+                          {isDelivered && (
+                            hasReviewed ? (
+                              <span
+                                style={{
+                                  fontSize: '0.72rem',
+                                  color: 'var(--success)',
+                                  background: 'rgba(0, 255, 136, 0.1)',
+                                  padding: '0.15rem 0.5rem',
+                                  borderRadius: '12px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  border: '1px solid rgba(0, 255, 136, 0.3)'
+                                }}
+                              >
+                                <Star size={11} fill="var(--success)" />
+                                Peça Avaliada
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReviewingTarget({
+                                    orderId: order.id,
+                                    productId: item.id,
+                                    productName: item.productName
+                                  })
+                                }
+                                className="btn btn-secondary"
+                                style={{
+                                  padding: '0.2rem 0.55rem',
+                                  fontSize: '0.75rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.3rem',
+                                  borderColor: 'var(--primary)',
+                                  color: 'var(--primary)'
+                                }}
+                              >
+                                <Star size={12} />
+                                Avaliar Peça
+                              </button>
+                            )
+                          )}
+                        </div>
+
+                        <span>{(item.price * item.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Rodapé com Frete, Rastreio e Total */}
@@ -253,6 +389,20 @@ export const MyOrders: React.FC = () => {
             );
           })}
         </div>
+      )}
+
+      {/* Modal de Avaliação de Produto */}
+      {reviewingTarget && (
+        <ReviewModal
+          isOpen={Boolean(reviewingTarget)}
+          onClose={() => setReviewingTarget(null)}
+          orderId={reviewingTarget.orderId}
+          productId={reviewingTarget.productId}
+          productName={reviewingTarget.productName}
+          onReviewSubmitted={() => {
+            fetchMyReviews();
+          }}
+        />
       )}
 
       {/* Modal da Caixa de Diálogo (Chat PIX entre Comprador e Vendedor) */}

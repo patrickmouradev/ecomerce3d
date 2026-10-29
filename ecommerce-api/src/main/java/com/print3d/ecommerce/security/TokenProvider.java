@@ -19,8 +19,8 @@ import java.util.stream.Collectors;
 @Component
 public class TokenProvider {
 
-    // Token expira em 24 horas (86400 segundos)
-    private static final long JWT_EXPIRATION_MS = 86400000L;
+    // Token expira em 1 hora (3600 segundos)
+    private static final long JWT_EXPIRATION_MS = 3600000L;
 
     /**
      * Gera um token JWT com claims customizadas de perfis e perfil ativo

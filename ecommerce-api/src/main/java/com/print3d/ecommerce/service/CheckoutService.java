@@ -23,6 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -50,6 +52,7 @@ public class CheckoutService {
     private final MelhorEnvioService melhorEnvioService;
     private final MercadoPagoService mercadoPagoService;
     private final OrderEmailService orderEmailService;
+    private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
 
     public CheckoutService(ProductRepository productRepository,
@@ -60,6 +63,7 @@ public class CheckoutService {
                            MelhorEnvioService melhorEnvioService,
                            MercadoPagoService mercadoPagoService,
                            OrderEmailService orderEmailService,
+                           FileStorageService fileStorageService,
                            ObjectMapper objectMapper) {
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
@@ -69,6 +73,7 @@ public class CheckoutService {
         this.melhorEnvioService = melhorEnvioService;
         this.mercadoPagoService = mercadoPagoService;
         this.orderEmailService = orderEmailService;
+        this.fileStorageService = fileStorageService;
         this.objectMapper = objectMapper;
     }
 
@@ -536,7 +541,20 @@ public class CheckoutService {
 
     @Transactional
     public OrderMessageDto sendOrderMessage(UUID userId, boolean asSeller, boolean hasAdminRole, UUID orderId, String messageText) {
-        if (messageText == null || messageText.trim().isEmpty()) {
+        return sendOrderMessage(userId, asSeller, hasAdminRole, orderId, messageText, null);
+    }
+
+    @Transactional
+    public OrderMessageDto sendOrderMessage(UUID userId,
+                                            boolean asSeller,
+                                            boolean hasAdminRole,
+                                            UUID orderId,
+                                            String messageText,
+                                            MultipartFile attachment) {
+        boolean hasText = messageText != null && !messageText.trim().isEmpty();
+        boolean hasFile = attachment != null && !attachment.isEmpty();
+
+        if (!hasText && !hasFile) {
             throw new IllegalArgumentException("A mensagem não pode estar vazia");
         }
 
@@ -550,6 +568,26 @@ public class CheckoutService {
         User sender = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
+        String attachmentUrl = null;
+        String attachmentName = null;
+        String attachmentType = null;
+
+        if (hasFile) {
+            try {
+                attachmentUrl = fileStorageService.storeChatAttachment(attachment);
+                String origName = attachment.getOriginalFilename();
+                attachmentName = (origName != null && !origName.isBlank())
+                        ? StringUtils.cleanPath(origName)
+                        : "anexo";
+                if (attachmentName.length() > 250) {
+                    attachmentName = attachmentName.substring(attachmentName.length() - 250);
+                }
+                attachmentType = attachmentUrl.toLowerCase().endsWith(".pdf") ? "PDF" : "IMAGE";
+            } catch (java.io.IOException e) {
+                throw new RuntimeException("Erro ao armazenar anexo do chat: " + e.getMessage(), e);
+            }
+        }
+
         boolean isSellerMessage = asSeller && hasAdminRole;
         String senderRole = isSellerMessage ? "VENDEDOR" : "COMPRADOR";
         String senderName = isSellerMessage
@@ -561,7 +599,10 @@ public class CheckoutService {
                 .senderUserId(sender.getId())
                 .senderName(senderName)
                 .senderRole(senderRole)
-                .message(messageText.trim())
+                .message(hasText ? messageText.trim() : "")
+                .attachmentUrl(attachmentUrl)
+                .attachmentName(attachmentName)
+                .attachmentType(attachmentType)
                 .build());
 
         if (!isSellerMessage) {
@@ -579,6 +620,9 @@ public class CheckoutService {
                 .senderName(msg.getSenderName())
                 .senderRole(msg.getSenderRole())
                 .message(msg.getMessage())
+                .attachmentUrl(msg.getAttachmentUrl())
+                .attachmentName(msg.getAttachmentName())
+                .attachmentType(msg.getAttachmentType())
                 .createdAt(msg.getCreatedAt() != null ? msg.getCreatedAt().format(DatePatterns.DATE_TIME_FORMATTER) : "")
                 .build();
     }
