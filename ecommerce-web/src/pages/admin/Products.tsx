@@ -41,14 +41,20 @@ interface Product {
   suggestedPriceShoppe: number;
   suggestedPriceParticular: number;
   suggestedPriceMercadoLivre?: number;
+  suggestedPriceMercadoLivrePix?: number;
+  suggestedPriceMercadoLivreCard?: number;
   productionCost: number;
   netProfit: number;
   netProfitShoppe: number;
   netProfitMercadoLivre?: number;
+  netProfitMercadoLivrePix?: number;
+  netProfitMercadoLivreCard?: number;
   profitMargin: number;
   salePriceParticular: number;
   salePriceShoppe: number;
   salePriceMercadoLivre?: number;
+  salePriceMercadoLivrePix?: number;
+  salePriceMercadoLivreCard?: number;
   active: boolean;
   imagesVideosPaths: string[];
   bannerImagesPaths?: string[];
@@ -57,6 +63,8 @@ interface Product {
   packagingCost: number;
   shopeeCostsTotal: number;
   mercadoLivreCostsTotal?: number;
+  mercadoLivrePixCostsTotal?: number;
+  mercadoLivreCardCostsTotal?: number;
   productionCostWithoutShoppe: number;
 }
 
@@ -125,7 +133,8 @@ export const Products: React.FC = () => {
   const [profitMargin, setProfitMargin] = useState('');
   const [salePriceParticular, setSalePriceParticular] = useState('');
   const [salePriceShoppe, setSalePriceShoppe] = useState('');
-  const [salePriceMercadoLivre, setSalePriceMercadoLivre] = useState('');
+  const [salePriceMercadoLivrePix, setSalePriceMercadoLivrePix] = useState('');
+  const [salePriceMercadoLivreCard, setSalePriceMercadoLivreCard] = useState('');
   const [active, setActive] = useState(true);
   const [imagesVideosPaths, setImagesVideosPaths] = useState<string[]>([]);
   const [bannerImagesPaths, setBannerImagesPaths] = useState<string[]>([]);
@@ -133,17 +142,20 @@ export const Products: React.FC = () => {
   // Calculadora
   const [suggestedPriceShoppe, setSuggestedPriceShoppe] = useState<number | null>(null);
   const [suggestedPriceParticular, setSuggestedPriceParticular] = useState<number | null>(null);
-  const [suggestedPriceMercadoLivre, setSuggestedPriceMercadoLivre] = useState<number | null>(null);
+  const [suggestedPriceMercadoLivrePix, setSuggestedPriceMercadoLivrePix] = useState<number | null>(null);
+  const [suggestedPriceMercadoLivreCard, setSuggestedPriceMercadoLivreCard] = useState<number | null>(null);
   const [productionCost, setProductionCost] = useState<number | null>(null);
   const [netProfit, setNetProfit] = useState<number | null>(null);
   const [netProfitShoppe, setNetProfitShoppe] = useState<number | null>(null);
-  const [netProfitMercadoLivre, setNetProfitMercadoLivre] = useState<number | null>(null);
+  const [netProfitMercadoLivrePix, setNetProfitMercadoLivrePix] = useState<number | null>(null);
+  const [netProfitMercadoLivreCard, setNetProfitMercadoLivreCard] = useState<number | null>(null);
   const [energyCostTotal, setEnergyCostTotal] = useState<number | null>(null);
   const [printerWearTotal, setPrinterWearTotal] = useState<number | null>(null);
   const [packagingCost, setPackagingCost] = useState<number | null>(null);
   const [accessoryCostTotal, setAccessoryCostTotal] = useState<number | null>(null);
   const [, setShopeeCostsTotal] = useState<number | null>(null);
-  const [mercadoLivreCostsTotal, setMercadoLivreCostsTotal] = useState<number | null>(null);
+  const [mercadoLivrePixCostsTotal, setMercadoLivrePixCostsTotal] = useState<number | null>(null);
+  const [mercadoLivreCardCostsTotal, setMercadoLivreCardCostsTotal] = useState<number | null>(null);
   const [productionCostWithoutShoppe, setProductionCostWithoutShoppe] = useState<number | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   
@@ -167,17 +179,20 @@ export const Products: React.FC = () => {
     } else {
       setSuggestedPriceShoppe(null);
       setSuggestedPriceParticular(null);
-      setSuggestedPriceMercadoLivre(null);
+      setSuggestedPriceMercadoLivrePix(null);
+      setSuggestedPriceMercadoLivreCard(null);
       setProductionCost(null);
       setNetProfit(null);
       setNetProfitShoppe(null);
-      setNetProfitMercadoLivre(null);
+      setNetProfitMercadoLivrePix(null);
+      setNetProfitMercadoLivreCard(null);
       setEnergyCostTotal(null);
       setPrinterWearTotal(null);
       setPackagingCost(null);
       setAccessoryCostTotal(null);
       setShopeeCostsTotal(null);
-      setMercadoLivreCostsTotal(null);
+      setMercadoLivrePixCostsTotal(null);
+      setMercadoLivreCardCostsTotal(null);
       setProductionCostWithoutShoppe(null);
     }
   }, [JSON.stringify(productFilaments), JSON.stringify(productAccessories), printingHours, profitMargin]);
@@ -236,17 +251,20 @@ export const Products: React.FC = () => {
       });
       setSuggestedPriceShoppe(response.data.suggestedPriceShoppe);
       setSuggestedPriceParticular(response.data.suggestedPriceParticular);
-      setSuggestedPriceMercadoLivre(response.data.suggestedPriceMercadoLivre ?? 0);
+      setSuggestedPriceMercadoLivrePix(response.data.suggestedPriceMercadoLivrePix ?? response.data.suggestedPriceMercadoLivre ?? 0);
+      setSuggestedPriceMercadoLivreCard(response.data.suggestedPriceMercadoLivreCard ?? response.data.suggestedPriceMercadoLivre ?? 0);
       setProductionCost(response.data.productionCost);
       setNetProfit(response.data.netProfit);
       setNetProfitShoppe(response.data.netProfitShoppe);
-      setNetProfitMercadoLivre(response.data.netProfitMercadoLivre ?? 0);
+      setNetProfitMercadoLivrePix(response.data.netProfitMercadoLivrePix ?? response.data.netProfitMercadoLivre ?? 0);
+      setNetProfitMercadoLivreCard(response.data.netProfitMercadoLivreCard ?? response.data.netProfitMercadoLivre ?? 0);
       setEnergyCostTotal(response.data.energyCostTotal);
       setPrinterWearTotal(response.data.printerWearTotal);
       setPackagingCost(response.data.packagingCost);
       setAccessoryCostTotal(response.data.accessoryCostTotal);
       setShopeeCostsTotal(response.data.shopeeCostsTotal);
-      setMercadoLivreCostsTotal(response.data.mercadoLivreCostsTotal ?? 0);
+      setMercadoLivrePixCostsTotal(response.data.mercadoLivrePixCostsTotal ?? response.data.mercadoLivreCostsTotal ?? 0);
+      setMercadoLivreCardCostsTotal(response.data.mercadoLivreCardCostsTotal ?? response.data.mercadoLivreCostsTotal ?? 0);
       setProductionCostWithoutShoppe(response.data.productionCostWithoutShoppe);
     } catch (e) {
       console.error("Erro ao calcular precificação", e);
@@ -364,23 +382,27 @@ export const Products: React.FC = () => {
     setProfitMargin('50');
     setSalePriceParticular('');
     setSalePriceShoppe('');
-    setSalePriceMercadoLivre('0');
+    setSalePriceMercadoLivrePix('0');
+    setSalePriceMercadoLivreCard('0');
     setActive(true);
     setImagesVideosPaths([]);
     setBannerImagesPaths([]);
     setSuggestedPriceShoppe(null);
     setSuggestedPriceParticular(null);
-    setSuggestedPriceMercadoLivre(0);
+    setSuggestedPriceMercadoLivrePix(0);
+    setSuggestedPriceMercadoLivreCard(0);
     setProductionCost(null);
     setNetProfit(null);
     setNetProfitShoppe(null);
-    setNetProfitMercadoLivre(0);
+    setNetProfitMercadoLivrePix(0);
+    setNetProfitMercadoLivreCard(0);
     setEnergyCostTotal(null);
     setPrinterWearTotal(null);
     setPackagingCost(null);
     setAccessoryCostTotal(null);
     setShopeeCostsTotal(null);
-    setMercadoLivreCostsTotal(0);
+    setMercadoLivrePixCostsTotal(0);
+    setMercadoLivreCardCostsTotal(0);
     setProductionCostWithoutShoppe(null);
     setFormError('');
     setModalOpen(true);
@@ -402,23 +424,27 @@ export const Products: React.FC = () => {
     setProfitMargin('50');
     setSalePriceParticular('');
     setSalePriceShoppe('');
-    setSalePriceMercadoLivre('0');
+    setSalePriceMercadoLivrePix('0');
+    setSalePriceMercadoLivreCard('0');
     setActive(true);
     setImagesVideosPaths([]);
     setBannerImagesPaths([]);
     setSuggestedPriceShoppe(null);
     setSuggestedPriceParticular(null);
-    setSuggestedPriceMercadoLivre(0);
+    setSuggestedPriceMercadoLivrePix(0);
+    setSuggestedPriceMercadoLivreCard(0);
     setProductionCost(null);
     setNetProfit(null);
     setNetProfitShoppe(null);
-    setNetProfitMercadoLivre(0);
+    setNetProfitMercadoLivrePix(0);
+    setNetProfitMercadoLivreCard(0);
     setEnergyCostTotal(null);
     setPrinterWearTotal(null);
     setPackagingCost(null);
     setAccessoryCostTotal(null);
     setShopeeCostsTotal(null);
-    setMercadoLivreCostsTotal(0);
+    setMercadoLivrePixCostsTotal(0);
+    setMercadoLivreCardCostsTotal(0);
     setProductionCostWithoutShoppe(null);
     setFormError('');
     setModalOpen(true);
@@ -452,23 +478,27 @@ export const Products: React.FC = () => {
     setProfitMargin(prod.profitMargin.toString());
     setSalePriceParticular(prod.salePriceParticular.toString());
     setSalePriceShoppe(prod.salePriceShoppe.toString());
-    setSalePriceMercadoLivre((prod.salePriceMercadoLivre ?? 0).toString());
+    setSalePriceMercadoLivrePix((prod.salePriceMercadoLivrePix ?? prod.salePriceMercadoLivre ?? 0).toString());
+    setSalePriceMercadoLivreCard((prod.salePriceMercadoLivreCard ?? prod.salePriceMercadoLivre ?? 0).toString());
     setActive(prod.active);
     setImagesVideosPaths(prod.imagesVideosPaths || []);
     setBannerImagesPaths(prod.bannerImagesPaths && prod.bannerImagesPaths.length > 0 ? prod.bannerImagesPaths : (prod.imagesVideosPaths || []));
     setSuggestedPriceShoppe(prod.suggestedPriceShoppe);
     setSuggestedPriceParticular(prod.suggestedPriceParticular);
-    setSuggestedPriceMercadoLivre(prod.suggestedPriceMercadoLivre ?? 0);
+    setSuggestedPriceMercadoLivrePix(prod.suggestedPriceMercadoLivrePix ?? prod.suggestedPriceMercadoLivre ?? 0);
+    setSuggestedPriceMercadoLivreCard(prod.suggestedPriceMercadoLivreCard ?? prod.suggestedPriceMercadoLivre ?? 0);
     setProductionCost(prod.productionCost);
     setNetProfit(prod.netProfit);
     setNetProfitShoppe(prod.netProfitShoppe);
-    setNetProfitMercadoLivre(prod.netProfitMercadoLivre ?? 0);
+    setNetProfitMercadoLivrePix(prod.netProfitMercadoLivrePix ?? prod.netProfitMercadoLivre ?? 0);
+    setNetProfitMercadoLivreCard(prod.netProfitMercadoLivreCard ?? prod.netProfitMercadoLivre ?? 0);
     setEnergyCostTotal(prod.energyCostTotal);
     setPrinterWearTotal(prod.printerWearTotal);
     setPackagingCost(prod.packagingCost);
     setAccessoryCostTotal(prod.accessoryCostTotal || null);
     setShopeeCostsTotal(prod.shopeeCostsTotal);
-    setMercadoLivreCostsTotal(prod.mercadoLivreCostsTotal ?? 0);
+    setMercadoLivrePixCostsTotal(prod.mercadoLivrePixCostsTotal ?? prod.mercadoLivreCostsTotal ?? 0);
+    setMercadoLivreCardCostsTotal(prod.mercadoLivreCardCostsTotal ?? prod.mercadoLivreCostsTotal ?? 0);
     setProductionCostWithoutShoppe(prod.productionCostWithoutShoppe);
     setFormError('');
     setModalOpen(true);
@@ -502,23 +532,27 @@ export const Products: React.FC = () => {
     setProfitMargin(prod.profitMargin.toString());
     setSalePriceParticular(prod.salePriceParticular.toString());
     setSalePriceShoppe(prod.salePriceShoppe.toString());
-    setSalePriceMercadoLivre((prod.salePriceMercadoLivre ?? 0).toString());
+    setSalePriceMercadoLivrePix((prod.salePriceMercadoLivrePix ?? prod.salePriceMercadoLivre ?? 0).toString());
+    setSalePriceMercadoLivreCard((prod.salePriceMercadoLivreCard ?? prod.salePriceMercadoLivre ?? 0).toString());
     setActive(prod.active);
     setImagesVideosPaths(prod.imagesVideosPaths || []);
     setBannerImagesPaths(prod.bannerImagesPaths && prod.bannerImagesPaths.length > 0 ? prod.bannerImagesPaths : (prod.imagesVideosPaths || []));
     setSuggestedPriceShoppe(prod.suggestedPriceShoppe);
     setSuggestedPriceParticular(prod.suggestedPriceParticular);
-    setSuggestedPriceMercadoLivre(prod.suggestedPriceMercadoLivre ?? 0);
+    setSuggestedPriceMercadoLivrePix(prod.suggestedPriceMercadoLivrePix ?? prod.suggestedPriceMercadoLivre ?? 0);
+    setSuggestedPriceMercadoLivreCard(prod.suggestedPriceMercadoLivreCard ?? prod.suggestedPriceMercadoLivre ?? 0);
     setProductionCost(prod.productionCost);
     setNetProfit(prod.netProfit);
     setNetProfitShoppe(prod.netProfitShoppe);
-    setNetProfitMercadoLivre(prod.netProfitMercadoLivre ?? 0);
+    setNetProfitMercadoLivrePix(prod.netProfitMercadoLivrePix ?? prod.netProfitMercadoLivre ?? 0);
+    setNetProfitMercadoLivreCard(prod.netProfitMercadoLivreCard ?? prod.netProfitMercadoLivre ?? 0);
     setEnergyCostTotal(prod.energyCostTotal);
     setPrinterWearTotal(prod.printerWearTotal);
     setPackagingCost(prod.packagingCost);
     setAccessoryCostTotal(prod.accessoryCostTotal || null);
     setShopeeCostsTotal(prod.shopeeCostsTotal);
-    setMercadoLivreCostsTotal(prod.mercadoLivreCostsTotal ?? 0);
+    setMercadoLivrePixCostsTotal(prod.mercadoLivrePixCostsTotal ?? prod.mercadoLivreCostsTotal ?? 0);
+    setMercadoLivreCardCostsTotal(prod.mercadoLivreCardCostsTotal ?? prod.mercadoLivreCostsTotal ?? 0);
     setProductionCostWithoutShoppe(prod.productionCostWithoutShoppe);
     setFormError('');
     setModalOpen(true);
@@ -770,11 +804,13 @@ export const Products: React.FC = () => {
     // 5. Soma valores de venda (Particular, Shoppe e Mercado Livre) como base inicial
     const totalSaleParticular = selectedProducts.reduce((sum, p) => sum + (Number(p.salePriceParticular) || 0), 0);
     const totalSaleShoppe = selectedProducts.reduce((sum, p) => sum + (Number(p.salePriceShoppe) || 0), 0);
-    const totalSaleML = selectedProducts.reduce((sum, p) => sum + (Number(p.salePriceMercadoLivre) || 0), 0);
+    const totalSaleMLPix = selectedProducts.reduce((sum, p) => sum + (Number(p.salePriceMercadoLivrePix ?? p.salePriceMercadoLivre) || 0), 0);
+    const totalSaleMLCard = selectedProducts.reduce((sum, p) => sum + (Number(p.salePriceMercadoLivreCard ?? p.salePriceMercadoLivre) || 0), 0);
 
     setSalePriceParticular(totalSaleParticular > 0 ? totalSaleParticular.toFixed(2) : '');
     setSalePriceShoppe(totalSaleShoppe > 0 ? totalSaleShoppe.toFixed(2) : '');
-    setSalePriceMercadoLivre(totalSaleML > 0 ? totalSaleML.toFixed(2) : '0');
+    setSalePriceMercadoLivrePix(totalSaleMLPix > 0 ? totalSaleMLPix.toFixed(2) : '0');
+    setSalePriceMercadoLivreCard(totalSaleMLCard > 0 ? totalSaleMLCard.toFixed(2) : '0');
   };
 
   const handleConfirmKitProductSelection = () => {
@@ -829,9 +865,15 @@ export const Products: React.FC = () => {
       return;
     }
 
-    const priceMercadoLivre = salePriceMercadoLivre.trim() === '' ? 0 : parseFloat(salePriceMercadoLivre);
-    if (isNaN(priceMercadoLivre) || priceMercadoLivre < 0) {
-      setFormError('O preço de venda Mercado Livre não pode ser negativo');
+    const priceMercadoLivrePix = salePriceMercadoLivrePix.trim() === '' ? 0 : parseFloat(salePriceMercadoLivrePix);
+    if (isNaN(priceMercadoLivrePix) || priceMercadoLivrePix < 0) {
+      setFormError('O preço de venda Mercado Livre Pix não pode ser negativo');
+      return;
+    }
+
+    const priceMercadoLivreCard = salePriceMercadoLivreCard.trim() === '' ? 0 : parseFloat(salePriceMercadoLivreCard);
+    if (isNaN(priceMercadoLivreCard) || priceMercadoLivreCard < 0) {
+      setFormError('O preço de venda Mercado Livre Cartão não pode ser negativo');
       return;
     }
 
@@ -868,7 +910,9 @@ export const Products: React.FC = () => {
       profitMargin: margin,
       salePriceParticular: priceParticular,
       salePriceShoppe: priceShoppe,
-      salePriceMercadoLivre: priceMercadoLivre,
+      salePriceMercadoLivrePix: priceMercadoLivrePix,
+      salePriceMercadoLivreCard: priceMercadoLivreCard,
+      salePriceMercadoLivre: priceMercadoLivrePix,
       active: active,
       imagesVideosPaths: imagesVideosPaths,
       bannerImagesPaths: bannerImagesPaths
@@ -1032,8 +1076,11 @@ export const Products: React.FC = () => {
                 <th onClick={() => handleSort('salePriceShoppe')}>
                   Venda Shoppe <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
-                <th onClick={() => handleSort('salePriceMercadoLivre')}>
-                  Venda Mercado Livre <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
+                <th onClick={() => handleSort('salePriceMercadoLivrePix')}>
+                  Venda ML Pix <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
+                </th>
+                <th onClick={() => handleSort('salePriceMercadoLivreCard')}>
+                  Venda ML Cartão <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
                 <th onClick={() => handleSort('hasAttachment')} style={{ textAlign: 'center', cursor: 'pointer' }}>
                   Anexo <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
@@ -1116,7 +1163,10 @@ export const Products: React.FC = () => {
                     {prod.salePriceShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
                   </td>
                   <td style={{ color: 'var(--success)', fontWeight: 700 }}>
-                    {(prod.salePriceMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    {(prod.salePriceMercadoLivrePix ?? prod.salePriceMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </td>
+                  <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    {(prod.salePriceMercadoLivreCard ?? prod.salePriceMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <span
@@ -1798,9 +1848,15 @@ export const Products: React.FC = () => {
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>Sugestão de Preço Mercado Livre:</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>Sugestão de Preço Mercado Livre Pix:</span>
                     <span style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>
-                      {loadingSuggestion ? 'Calculando...' : (suggestedPriceMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {loadingSuggestion ? 'Calculando...' : (suggestedPriceMercadoLivrePix ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600 }}>Sugestão de Preço Mercado Livre Cartão:</span>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>
+                      {loadingSuggestion ? 'Calculando...' : (suggestedPriceMercadoLivreCard ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
@@ -1815,10 +1871,16 @@ export const Products: React.FC = () => {
                       {loadingSuggestion ? 'Calculando...' : netProfitShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: (netProfitMercadoLivrePix !== null && netProfitMercadoLivrePix >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>Estimativa de Lucro Líquido Mercado Livre Pix:</span>
+                    <span style={{ fontSize: '0.9rem', color: (netProfitMercadoLivrePix !== null && netProfitMercadoLivrePix >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+                      {loadingSuggestion ? 'Calculando...' : (netProfitMercadoLivrePix ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.85rem', color: (netProfitMercadoLivre !== null && netProfitMercadoLivre >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>Estimativa de Lucro Líquido Mercado Livre:</span>
-                    <span style={{ fontSize: '0.9rem', color: (netProfitMercadoLivre !== null && netProfitMercadoLivre >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
-                      {loadingSuggestion ? 'Calculando...' : (netProfitMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    <span style={{ fontSize: '0.85rem', color: (netProfitMercadoLivreCard !== null && netProfitMercadoLivreCard >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>Estimativa de Lucro Líquido Mercado Livre Cartão:</span>
+                    <span style={{ fontSize: '0.9rem', color: (netProfitMercadoLivreCard !== null && netProfitMercadoLivreCard >= 0) ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+                      {loadingSuggestion ? 'Calculando...' : (netProfitMercadoLivreCard ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
                 </div>
@@ -1895,21 +1957,60 @@ export const Products: React.FC = () => {
                     );
                   })()}
                 </div>
-                <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
-                  <label className="form-label">Preço Venda Mercado Livre (R$)</label>
+                <div className="form-group" style={{ flex: 1, minWidth: '180px' }}>
+                  <label className="form-label">Preço Venda Mercado Livre Pix (R$)</label>
                   <input 
                     type="number" 
                     step="0.01" 
                     min="0"
                     placeholder="0.00"
-                    value={salePriceMercadoLivre} 
-                    onChange={(e) => setSalePriceMercadoLivre(e.target.value)} 
+                    value={salePriceMercadoLivrePix} 
+                    onChange={(e) => setSalePriceMercadoLivrePix(e.target.value)} 
                     className="form-input" 
                   />
                   {(() => {
-                    const price = parseFloat(salePriceMercadoLivre);
+                    const price = parseFloat(salePriceMercadoLivrePix);
                     const baseCost = productionCostWithoutShoppe !== null && productionCostWithoutShoppe > 0
-                      ? productionCostWithoutShoppe + (mercadoLivreCostsTotal ?? 0)
+                      ? productionCostWithoutShoppe + (mercadoLivrePixCostsTotal ?? 0)
+                      : null;
+                    if (!baseCost || baseCost <= 0 || isNaN(price) || price <= 0) {
+                      return (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                          Margem real: <strong>0,00%</strong> (R$ 0,00)
+                        </span>
+                      );
+                    }
+                    const realProfit = price - baseCost;
+                    const realMarginPct = (realProfit / baseCost) * 100;
+                    const isPositive = realMarginPct >= 0;
+                    return (
+                      <span style={{
+                        fontSize: '0.75rem',
+                        color: isPositive ? 'var(--success)' : 'var(--danger)',
+                        marginTop: '0.15rem',
+                        fontWeight: 500
+                      }}>
+                        Margem real: <strong>{realMarginPct.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</strong> ({realProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <div className="form-group" style={{ flex: 1, minWidth: '180px' }}>
+                  <label className="form-label">Preço Venda Mercado Livre Cartão (R$)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    min="0"
+                    placeholder="0.00"
+                    value={salePriceMercadoLivreCard} 
+                    onChange={(e) => setSalePriceMercadoLivreCard(e.target.value)} 
+                    className="form-input" 
+                  />
+                  {(() => {
+                    const price = parseFloat(salePriceMercadoLivreCard);
+                    const baseCost = productionCostWithoutShoppe !== null && productionCostWithoutShoppe > 0
+                      ? productionCostWithoutShoppe + (mercadoLivreCardCostsTotal ?? 0)
                       : null;
                     if (!baseCost || baseCost <= 0 || isNaN(price) || price <= 0) {
                       return (

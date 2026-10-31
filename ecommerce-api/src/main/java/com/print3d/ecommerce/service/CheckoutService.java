@@ -186,7 +186,14 @@ public class CheckoutService {
                 throw new RuntimeException("O produto '" + product.getName() + "' não está mais disponível");
             }
             int qty = Math.max(1, cartItem.getQuantity());
-            BigDecimal unitPrice = product.getSalePriceParticular();
+            boolean isPixPayment = request.getPaymentMethodId() == null
+                    || "pix".equalsIgnoreCase(request.getPaymentMethodId())
+                    || "pix_chat".equalsIgnoreCase(request.getPaymentMethodId())
+                    || "pix_direto".equalsIgnoreCase(request.getPaymentMethodId());
+
+ BigDecimal unitPrice = isPixPayment
+ ? product.getSalePriceMercadoLivrePix()
+ : product.getSalePriceMercadoLivreCard();
             subtotal = subtotal.add(unitPrice.multiply(BigDecimal.valueOf(qty)));
 
             orderItems.add(OrderItem.builder()

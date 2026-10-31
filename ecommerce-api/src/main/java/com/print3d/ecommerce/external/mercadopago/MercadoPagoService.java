@@ -1,5 +1,6 @@
 package com.print3d.ecommerce.external.mercadopago;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,14 +9,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.*;
 
 @Service
 public class MercadoPagoService {
 
     private static final Logger log = LoggerFactory.getLogger(MercadoPagoService.class);
+    private static final String MP_ORDERS_URL = "https://api.mercadopago.com/v1/orders";
     private static final String MP_PAYMENTS_URL = "https://api.mercadopago.com/v1/payments";
 
     @Value("${app.external.mercadopago.public-key:}")
@@ -28,9 +30,11 @@ public class MercadoPagoService {
     private String frontendUrl;
 
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     public MercadoPagoService() {
         this.restTemplate = new RestTemplate();
+        this.objectMapper = new ObjectMapper();
     }
 
     public String getPublicKey() {
@@ -47,12 +51,12 @@ public class MercadoPagoService {
     }
 
     /**
-     * Processa um pagamento no Mercado Pago (PIX ou Cartão de Crédito) via API v1/payments.
+     * Processa um pagamento no Mercado Pago (PIX ou Cartão de Crédito) via Orders API (v1/orders).
      * Caso as credenciais ainda sejam placeholders (TEST-XXXX), executa em modo simulado.
      */
     @SuppressWarnings("unchecked")
     public MercadoPagoPaymentResponseDto criarPagamento(MercadoPagoPaymentRequestDto request) {
-        log.info("Processando pagamento de R$ {} via {} para pedido {}",
+        log.info("Processando pagamento via Orders API de R$ {} via {} para pedido {}",
                 request.getTransactionAmount(), request.getPaymentMethodId(), request.getExternalReference());
 
         if (!isConfiguredWithRealCredentials()) {
@@ -66,30 +70,19 @@ public class MercadoPagoService {
             headers.setBearerAuth(accessToken.trim());
             headers.set("X-Idempotency-Key", UUID.randomUUID().toString());
 
+            BigDecimal amount = request.getTransactionAmount() != null
+                    ? request.getTransactionAmount().setScale(2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            String amountStr = amount.toPlainString();
+
             Map<String, Object> body = new HashMap<>();
-            body.put("transaction_amount", request.getTransactionAmount());
-            body.put("description", request.getDescription() != null ? request.getDescription() : "Compra 3DPrintPNG");
-            body.put("payment_method_id", request.getPaymentMethodId());
+            body.put("type", "online");
+            body.put("processing_mode", "automatic");
+            body.put("total_amount", amountStr);
             body.put("external_reference", request.getExternalReference());
+            body.put("description", request.getDescription() != null ? request.getDescription() : "Compra 3DPrintPNG");
 
-            // Para cartão de crédito, envia token, parcelas e issuer_id
-            if (!"pix".equalsIgnoreCase(request.getPaymentMethodId())) {
-                body.put("token", request.getToken());
-                body.put("installments", request.getInstallments() != null && request.getInstallments() > 0 ? request.getInstallments() : 1);
-                if (request.getIssuerId() != null && !request.getIssuerId().trim().isEmpty()) {
-                    body.put("issuer_id", request.getIssuerId());
-                }
-            } else {
-                body.put("installments", 1);
-            }
-
-            // Configura notification_url apenas se for uma URL HTTPS pública válida (ex: DuckDNS com SSL)
-            if (isValidPublicHttpsUrl(frontendUrl)) {
-                String baseUrl = frontendUrl.endsWith("/") ? frontendUrl.substring(0, frontendUrl.length() - 1) : frontendUrl;
-                body.put("notification_url", baseUrl + "/api/webhooks/mercadopago");
-            }
-
-            // Dados do Payer (Obrigatórios para PIX e Antifraude)
+            // Dados do Payer
             Map<String, Object> payer = new HashMap<>();
             payer.put("email", request.getEmail());
             if (request.getFirstName() != null && !request.getFirstName().isEmpty()) {
@@ -111,23 +104,55 @@ public class MercadoPagoService {
                 address.put("street_number", request.getStreetNumber());
                 address.put("neighborhood", request.getNeighborhood());
                 address.put("city", request.getCity());
-                address.put("federal_unit", request.getFederalUnit());
+                address.put("state", request.getFederalUnit());
                 payer.put("address", address);
             }
             body.put("payer", payer);
 
+            // Transação de Pagamento (PIX ou Cartão)
+            Map<String, Object> paymentMethod = new HashMap<>();
+            boolean isPix = request.getPaymentMethodId() == null || "pix".equalsIgnoreCase(request.getPaymentMethodId());
+
+            if (isPix) {
+                paymentMethod.put("id", "pix");
+                paymentMethod.put("type", "bank_transfer");
+            } else {
+                paymentMethod.put("id", request.getPaymentMethodId());
+                paymentMethod.put("type", "credit_card");
+                paymentMethod.put("token", request.getToken());
+                paymentMethod.put("installments", request.getInstallments() != null && request.getInstallments() > 0 ? request.getInstallments() : 1);
+            }
+
+            Map<String, Object> paymentTx = new HashMap<>();
+            paymentTx.put("amount", amountStr);
+            paymentTx.put("payment_method", paymentMethod);
+
+            Map<String, Object> transactions = new HashMap<>();
+            transactions.put("payments", List.of(paymentTx));
+            body.put("transactions", transactions);
+
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-            ResponseEntity<Map> response = restTemplate.exchange(MP_PAYMENTS_URL, HttpMethod.POST, entity, Map.class);
+            ResponseEntity<Map> response = restTemplate.exchange(MP_ORDERS_URL, HttpMethod.POST, entity, Map.class);
 
             Map<String, Object> responseBody = response.getBody();
             if (responseBody == null) {
-                throw new RuntimeException("Resposta vazia da API do Mercado Pago");
+                throw new RuntimeException("Resposta vazia da Orders API do Mercado Pago");
             }
 
             return mapFromMercadoPagoResponse(responseBody);
 
         } catch (HttpStatusCodeException e) {
-            log.error("Erro HTTP do Mercado Pago ({}): {}", e.getStatusCode(), e.getResponseBodyAsString());
+            log.warn("Mercado Pago retornou status HTTP {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            try {
+                // Se a Orders API retornou HTTP 4xx com o objeto "data" da ordem recusada (ex: high_risk, card_disabled)
+                Map<String, Object> errBody = objectMapper.readValue(e.getResponseBodyAsString(), Map.class);
+                if (errBody != null && errBody.get("data") instanceof Map) {
+                    Map<String, Object> data = (Map<String, Object>) errBody.get("data");
+                    return mapFromMercadoPagoResponse(data);
+                }
+            } catch (Exception ex) {
+                log.debug("Não foi possível extrair dados da ordem no corpo do erro HTTP: {}", ex.getMessage());
+            }
             throw new RuntimeException("Mercado Pago recusou a requisição: " + e.getResponseBodyAsString());
         } catch (Exception e) {
             log.error("Erro ao processar pagamento no Mercado Pago: {}", e.getMessage(), e);
@@ -136,18 +161,18 @@ public class MercadoPagoService {
     }
 
     /**
-     * Consulta o status atualizado de um pagamento diretamente na API do Mercado Pago.
+     * Consulta o status atualizado de uma order ou pagamento diretamente na API do Mercado Pago.
      * Usado tanto pelo Webhook quanto pelo Polling ativo da tela de PIX.
      */
     @SuppressWarnings("unchecked")
-    public MercadoPagoPaymentResponseDto consultarPagamento(String paymentId) {
-        if (paymentId == null || paymentId.trim().isEmpty()) {
-            throw new IllegalArgumentException("paymentId é obrigatório");
+    public MercadoPagoPaymentResponseDto consultarPagamento(String orderOrPaymentId) {
+        if (orderOrPaymentId == null || orderOrPaymentId.trim().isEmpty()) {
+            throw new IllegalArgumentException("paymentId/orderId é obrigatório");
         }
 
-        if (!isConfiguredWithRealCredentials() || paymentId.startsWith("SIM-")) {
+        if (!isConfiguredWithRealCredentials() || orderOrPaymentId.startsWith("SIM-")) {
             return MercadoPagoPaymentResponseDto.builder()
-                    .paymentId(paymentId)
+                    .paymentId(orderOrPaymentId)
                     .status("pending")
                     .statusDetail("pending_waiting_transfer")
                     .simulated(true)
@@ -159,8 +184,12 @@ public class MercadoPagoService {
             headers.setBearerAuth(accessToken.trim());
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
+            String url = (orderOrPaymentId.startsWith("ORD") || orderOrPaymentId.length() > 20)
+                    ? MP_ORDERS_URL + "/" + orderOrPaymentId.trim()
+                    : MP_PAYMENTS_URL + "/" + orderOrPaymentId.trim();
+
             ResponseEntity<Map> response = restTemplate.exchange(
-                    MP_PAYMENTS_URL + "/" + paymentId.trim(),
+                    url,
                     HttpMethod.GET,
                     entity,
                     Map.class
@@ -168,40 +197,72 @@ public class MercadoPagoService {
 
             Map<String, Object> responseBody = response.getBody();
             if (responseBody == null) {
-                throw new RuntimeException("Resposta vazia ao consultar pagamento no Mercado Pago");
+                throw new RuntimeException("Resposta vazia ao consultar order no Mercado Pago");
             }
 
             return mapFromMercadoPagoResponse(responseBody);
         } catch (Exception e) {
-            log.error("Erro ao consultar pagamento {} no Mercado Pago: {}", paymentId, e.getMessage());
-            throw new RuntimeException("Não foi possível consultar status do pagamento no Mercado Pago");
+            log.error("Erro ao consultar order/pagamento {} no Mercado Pago: {}", orderOrPaymentId, e.getMessage());
+            throw new RuntimeException("Não foi possível consultar status no Mercado Pago: " + e.getMessage());
         }
     }
 
     @SuppressWarnings("unchecked")
     private MercadoPagoPaymentResponseDto mapFromMercadoPagoResponse(Map<String, Object> responseBody) {
-        String id = String.valueOf(responseBody.get("id"));
-        String status = (String) responseBody.get("status");
-        String statusDetail = (String) responseBody.get("status_detail");
+        String orderId = String.valueOf(responseBody.get("id"));
+        String orderStatus = (String) responseBody.get("status");
+        String orderStatusDetail = (String) responseBody.get("status_detail");
 
         String qrCode = null;
         String qrCodeBase64 = null;
         String ticketUrl = null;
+        String paymentId = orderId;
+        String paymentStatus = orderStatus;
+        String paymentStatusDetail = orderStatusDetail;
 
+        // Extrai dados da primeira transação/pagamento dentro de transactions.payments (Orders API)
+        Map<String, Object> transactions = (Map<String, Object>) responseBody.get("transactions");
+        if (transactions != null) {
+            List<Map<String, Object>> payments = (List<Map<String, Object>>) transactions.get("payments");
+            if (payments != null && !payments.isEmpty()) {
+                Map<String, Object> firstPayment = payments.get(0);
+                if (firstPayment.get("id") != null) {
+                    paymentId = String.valueOf(firstPayment.get("id"));
+                }
+                if (firstPayment.get("status") != null) {
+                    paymentStatus = String.valueOf(firstPayment.get("status"));
+                }
+                if (firstPayment.get("status_detail") != null) {
+                    paymentStatusDetail = String.valueOf(firstPayment.get("status_detail"));
+                }
+
+                Map<String, Object> paymentMethod = (Map<String, Object>) firstPayment.get("payment_method");
+                if (paymentMethod != null) {
+                    qrCode = (String) paymentMethod.get("qr_code");
+                    qrCodeBase64 = (String) paymentMethod.get("qr_code_base64");
+                    ticketUrl = (String) paymentMethod.get("ticket_url");
+                }
+            }
+        }
+
+        // Suporte legado (caso receba payload de v1/payments)
         Map<String, Object> pointOfInteraction = (Map<String, Object>) responseBody.get("point_of_interaction");
         if (pointOfInteraction != null) {
             Map<String, Object> transactionData = (Map<String, Object>) pointOfInteraction.get("transaction_data");
             if (transactionData != null) {
-                qrCode = (String) transactionData.get("qr_code");
-                qrCodeBase64 = (String) transactionData.get("qr_code_base64");
-                ticketUrl = (String) transactionData.get("ticket_url");
+                if (qrCode == null) qrCode = (String) transactionData.get("qr_code");
+                if (qrCodeBase64 == null) qrCodeBase64 = (String) transactionData.get("qr_code_base64");
+                if (ticketUrl == null) ticketUrl = (String) transactionData.get("ticket_url");
             }
         }
 
+        // Normaliza status para o padrão esperado pelo CheckoutService (approved, pending, rejected, cancelled)
+        String normalizedStatus = normalizeStatus(orderStatus, paymentStatus);
+
         return MercadoPagoPaymentResponseDto.builder()
-                .paymentId(id)
-                .status(status != null ? status : "pending")
-                .statusDetail(statusDetail != null ? statusDetail : "")
+                .paymentId(orderId != null && !orderId.equals("null") ? orderId : paymentId)
+                .status(normalizedStatus)
+                .statusDetail(paymentStatusDetail != null ? paymentStatusDetail : (orderStatusDetail != null ? orderStatusDetail : ""))
                 .qrCode(qrCode)
                 .qrCodeBase64(qrCodeBase64)
                 .ticketUrl(ticketUrl)
@@ -209,12 +270,23 @@ public class MercadoPagoService {
                 .build();
     }
 
-    private boolean isValidPublicHttpsUrl(String url) {
-        if (url == null || !url.toLowerCase().startsWith("https://")) {
-            return false;
+    private String normalizeStatus(String orderStatus, String paymentStatus) {
+        if ("processed".equalsIgnoreCase(orderStatus) || "approved".equalsIgnoreCase(orderStatus)
+                || "processed".equalsIgnoreCase(paymentStatus) || "approved".equalsIgnoreCase(paymentStatus)) {
+            return "approved";
         }
-        String lower = url.toLowerCase();
-        return !lower.contains("localhost") && !lower.contains("127.0.0.1") && !lower.contains("192.168.");
+        if ("failed".equalsIgnoreCase(orderStatus) || "rejected".equalsIgnoreCase(orderStatus)
+                || "failed".equalsIgnoreCase(paymentStatus) || "rejected".equalsIgnoreCase(paymentStatus)) {
+            return "rejected";
+        }
+        if ("canceled".equalsIgnoreCase(orderStatus) || "cancelled".equalsIgnoreCase(orderStatus)
+                || "canceled".equalsIgnoreCase(paymentStatus) || "cancelled".equalsIgnoreCase(paymentStatus)) {
+            return "cancelled";
+        }
+        if ("refunded".equalsIgnoreCase(orderStatus) || "refunded".equalsIgnoreCase(paymentStatus)) {
+            return "refunded";
+        }
+        return "pending";
     }
 
     private MercadoPagoPaymentResponseDto criarPagamentoSimulado(MercadoPagoPaymentRequestDto request) {

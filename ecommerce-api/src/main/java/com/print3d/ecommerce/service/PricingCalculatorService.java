@@ -115,26 +115,55 @@ public class PricingCalculatorService {
                 .multiply(marginRate)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // Cálculo Mercado Livre (quando porcentagem, é calculado sobre Custo de Produção + Margem)
-        BasicProductionCost mlCostEntity = findCostIgnoreCase(costsEntitiesMap, CostConstants.TAXA_MERCADO_LIVRE);
-        BigDecimal mercadoLivreCostsTotal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        BigDecimal suggestedPriceMercadoLivre = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        BigDecimal netProfitMercadoLivre = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        // 1. Cálculo Mercado Livre Pix (taxa padrão ~0.99%)
+        BasicProductionCost mlPixCostEntity = findCostIgnoreCase(costsEntitiesMap, CostConstants.TAXA_MERCADO_LIVRE_PIX);
+        if (mlPixCostEntity == null) {
+            mlPixCostEntity = findCostIgnoreCase(costsEntitiesMap, CostConstants.TAXA_MERCADO_LIVRE);
+        }
+        BigDecimal mercadoLivrePixCostsTotal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal suggestedPriceMercadoLivrePix = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal netProfitMercadoLivrePix = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
-        if (mlCostEntity != null && mlCostEntity.getValue() != null && mlCostEntity.getValue() > 0) {
-            mercadoLivreCostsTotal = resolveCostValue(mlCostEntity, suggestedPriceParticular).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal productionCostMercadoLivre = productionCostWithoutShoppe
-                    .add(mercadoLivreCostsTotal)
+        if (mlPixCostEntity != null && mlPixCostEntity.getValue() != null && mlPixCostEntity.getValue() > 0) {
+            mercadoLivrePixCostsTotal = resolveCostValue(mlPixCostEntity, suggestedPriceParticular).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal productionCostMercadoLivrePix = productionCostWithoutShoppe
+                    .add(mercadoLivrePixCostsTotal)
                     .setScale(2, RoundingMode.HALF_UP);
 
-            suggestedPriceMercadoLivre = productionCostMercadoLivre
+            suggestedPriceMercadoLivrePix = productionCostMercadoLivrePix
                     .multiply(marginMultiplier)
                     .setScale(2, RoundingMode.HALF_UP);
 
-            netProfitMercadoLivre = productionCostMercadoLivre
+            netProfitMercadoLivrePix = productionCostMercadoLivrePix
                     .multiply(marginRate)
                     .setScale(2, RoundingMode.HALF_UP);
         }
+
+        // 2. Cálculo Mercado Livre Cartão (taxa padrão ~3.98%)
+        BasicProductionCost mlCardCostEntity = findCostIgnoreCase(costsEntitiesMap, CostConstants.TAXA_MERCADO_LIVRE_CARD);
+        BigDecimal mercadoLivreCardCostsTotal = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal suggestedPriceMercadoLivreCard = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal netProfitMercadoLivreCard = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+
+        if (mlCardCostEntity != null && mlCardCostEntity.getValue() != null && mlCardCostEntity.getValue() > 0) {
+            mercadoLivreCardCostsTotal = resolveCostValue(mlCardCostEntity, suggestedPriceParticular).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal productionCostMercadoLivreCard = productionCostWithoutShoppe
+                    .add(mercadoLivreCardCostsTotal)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            suggestedPriceMercadoLivreCard = productionCostMercadoLivreCard
+                    .multiply(marginMultiplier)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            netProfitMercadoLivreCard = productionCostMercadoLivreCard
+                    .multiply(marginRate)
+                    .setScale(2, RoundingMode.HALF_UP);
+        }
+
+        // Fallbacks legados apontam para o Pix
+        BigDecimal suggestedPriceMercadoLivre = suggestedPriceMercadoLivrePix;
+        BigDecimal netProfitMercadoLivre = netProfitMercadoLivrePix;
+        BigDecimal mercadoLivreCostsTotal = mercadoLivrePixCostsTotal;
 
         return PricingResult.builder()
                 .productionCost(productionCost)
@@ -142,15 +171,21 @@ public class PricingCalculatorService {
                 .suggestedPriceShoppe(suggestedPriceShoppe)
                 .suggestedPriceParticular(suggestedPriceParticular)
                 .suggestedPriceMercadoLivre(suggestedPriceMercadoLivre)
+                .suggestedPriceMercadoLivrePix(suggestedPriceMercadoLivrePix)
+                .suggestedPriceMercadoLivreCard(suggestedPriceMercadoLivreCard)
                 .netProfit(netProfit)
                 .netProfitShoppe(netProfitShoppe)
                 .netProfitMercadoLivre(netProfitMercadoLivre)
+                .netProfitMercadoLivrePix(netProfitMercadoLivrePix)
+                .netProfitMercadoLivreCard(netProfitMercadoLivreCard)
                 .energyCostTotal(energyCostTotal)
                 .printerWearTotal(printerWearTotal)
                 .packagingCost(packagingCost.setScale(2, RoundingMode.HALF_UP))
                 .accessoryCostTotal(accessoryCostTotal)
                 .shopeeCostsTotal(shopeeCostsTotal)
                 .mercadoLivreCostsTotal(mercadoLivreCostsTotal)
+                .mercadoLivrePixCostsTotal(mercadoLivrePixCostsTotal)
+                .mercadoLivreCardCostsTotal(mercadoLivreCardCostsTotal)
                 .productionCostWithoutShoppe(productionCostWithoutShoppe)
                 .build();
     }
@@ -175,14 +210,17 @@ public class PricingCalculatorService {
         return BigDecimal.valueOf(cost.getValue());
     }
 
-    private BigDecimal resolveCostValue(BasicProductionCost cost, BigDecimal baseWithMargin) {
-        if (cost == null || cost.getValue() == null) {
+    private BigDecimal resolveCostValue(BasicProductionCost cost, BigDecimal baseValueForPercentage) {
+        if (cost == null || cost.getValue() == null || cost.getValue() == 0) {
             return BigDecimal.ZERO;
         }
-        BigDecimal val = BigDecimal.valueOf(cost.getValue());
+        BigDecimal rawValue = BigDecimal.valueOf(cost.getValue());
         if (cost.isPercentage()) {
-            return baseWithMargin.multiply(val.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP));
+            // rawValue é porcentagem (ex: 20% -> rawValue = 20)
+            return baseValueForPercentage
+                    .multiply(rawValue)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         }
-        return val;
+        return rawValue.setScale(2, RoundingMode.HALF_UP);
     }
 }

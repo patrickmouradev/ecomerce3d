@@ -48,12 +48,16 @@ public class ProductDto {
     private BigDecimal suggestedPriceShoppe;
     private BigDecimal suggestedPriceParticular;
     private BigDecimal suggestedPriceMercadoLivre;
+    private BigDecimal suggestedPriceMercadoLivrePix;
+    private BigDecimal suggestedPriceMercadoLivreCard;
 
     private BigDecimal productionCost; // Calculado pelo sistema dinamicamente
 
     private BigDecimal netProfit; // Calculado pelo sistema dinamicamente
     private BigDecimal netProfitShoppe; // Calculado pelo sistema dinamicamente
-    private BigDecimal netProfitMercadoLivre; // Calculado pelo sistema dinamicamente
+    private BigDecimal netProfitMercadoLivre;
+    private BigDecimal netProfitMercadoLivrePix;
+    private BigDecimal netProfitMercadoLivreCard;
 
     private BigDecimal energyCostTotal;
     private BigDecimal printerWearTotal;
@@ -61,6 +65,8 @@ public class ProductDto {
     private BigDecimal accessoryCostTotal;
     private BigDecimal shopeeCostsTotal;
     private BigDecimal mercadoLivreCostsTotal;
+    private BigDecimal mercadoLivrePixCostsTotal;
+    private BigDecimal mercadoLivreCardCostsTotal;
     private BigDecimal productionCostWithoutShoppe;
 
     @NotNull(message = "Margem de lucro é obrigatória")
@@ -77,6 +83,12 @@ public class ProductDto {
 
     @DecimalMin(value = "0.00", message = "O preço de venda Mercado Livre não pode ser negativo")
     private BigDecimal salePriceMercadoLivre;
+
+    @DecimalMin(value = "0.00", message = "O preço de venda Mercado Livre Pix não pode ser negativo")
+    private BigDecimal salePriceMercadoLivrePix;
+
+    @DecimalMin(value = "0.00", message = "O preço de venda Mercado Livre Cartão não pode ser negativo")
+    private BigDecimal salePriceMercadoLivreCard;
 
     private Boolean active;
 
