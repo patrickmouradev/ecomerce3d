@@ -1,10 +1,18 @@
 // ============================================================
-// Jenkinsfile — Pipeline do Backend (Spring Boot)
+// Jenkinsfile – Pipeline do Backend (Spring Boot)
 // Repositório: d:\GIT\Projeto _Loja_3D\ecommerce-api
-// Trigger: Manual / Push
+// Trigger: Manual / Push / Parametrizado
 // ============================================================
 pipeline {
     agent any
+
+    parameters {
+        string(
+            name: 'BRANCH_NAME',
+            defaultValue: 'main',
+            description: 'Nome da branch para checkout e build (ex: main, feature/integracao_mercadoPago)'
+        )
+    }
 
     // Variáveis sensíveis gerenciadas pelo Jenkins Credentials
     environment {
@@ -32,8 +40,24 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo '=== Clonando repositorio ==='
-                checkout scm
+                script {
+                    def targetBranch = params.BRANCH_NAME ?: 'main'
+                    echo "=== Realizando Checkout da branch: ${targetBranch} ==="
+
+                    if (scm && scm.userRemoteConfigs) {
+                        def branchSpec = (targetBranch.startsWith('*/') || targetBranch.startsWith('refs/') || targetBranch.startsWith('origin/')) ? targetBranch : "*/${targetBranch}"
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: branchSpec]],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: scm.extensions ?: [],
+                            submoduleCfg: [],
+                            userRemoteConfigs: scm.userRemoteConfigs
+                        ])
+                    } else {
+                        checkout scm
+                    }
+                }
             }
         }
 
@@ -135,10 +159,10 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline do Backend concluida com sucesso! Versao: ${env.APP_VERSION} (Build #${BUILD_NUMBER})"
+            echo "Pipeline do Backend concluida com sucesso! Versao: ${env.APP_VERSION} (Build #${BUILD_NUMBER}) [Branch: ${params.BRANCH_NAME}]"
         }
         failure {
-            echo "Pipeline do Backend FALHOU no build #${BUILD_NUMBER}."
+            echo "Pipeline do Backend FALHOU no build #${BUILD_NUMBER} [Branch: ${params.BRANCH_NAME}]."
         }
         always {
             script {
