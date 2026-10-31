@@ -115,9 +115,27 @@ pipeline {
             steps {
                 echo '=== Verificando se o Frontend esta respondendo ==='
                 sh '''
-                    sleep 5
-                    curl -f http://${CONTAINER_NAME} || \
-                        (echo "ERRO: Frontend nao respondeu!" && exit 1)
+                    echo "Aguardando inicializacao do Frontend (${CONTAINER_NAME})..."
+                    UP=0
+                    for i in $(seq 1 10); do
+                        sleep 3
+                        echo "Tentativa $i de 10: testando conexao com http://${CONTAINER_NAME} ..."
+                        if curl -s -f http://${CONTAINER_NAME} > /dev/null 2>&1; then
+                            echo "SUCESSO: Frontend respondeu ao health check!"
+                            UP=1
+                            break
+                        fi
+                    done
+
+                    if [ $UP -ne 1 ]; then
+                        echo "=========================================================="
+                        echo "ERRO: Frontend nao respondeu dentro de 30 segundos!"
+                        echo "Logs recentes do container ${CONTAINER_NAME}:"
+                        echo "=========================================================="
+                        docker logs --tail 100 ${CONTAINER_NAME} || true
+                        echo "=========================================================="
+                        exit 1
+                    fi
                 '''
             }
         }
