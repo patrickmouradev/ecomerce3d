@@ -1,4 +1,4 @@
--- 1. Adicionar colunas de preço Mercado Livre Pix e Cartão na tabela tb_product
+-- 1. Adicionar colunas de preco Mercado Livre Pix e Cartao na tabela tb_product
 ALTER TABLE tb_product
     ADD COLUMN IF NOT EXISTS sale_price_mercado_livre_pix NUMERIC(10, 2) DEFAULT 0.00,
     ADD COLUMN IF NOT EXISTS sale_price_mercado_livre_card NUMERIC(10, 2) DEFAULT 0.00;
@@ -19,16 +19,16 @@ SET description = 'Taxa Mercado Livre Pix',
     updated_at = CURRENT_DATE
 WHERE description = 'Taxa Mercado Livre' OR description ILIKE 'Taxa Mercado Livre';
 
--- 4. Inserir Taxa Mercado Livre Cartão (3.98%) se não existir
+-- 4. Inserir Taxa Mercado Livre Cartao (3.98%) se nao existir (usando UUID estatico)
 INSERT INTO tb_basic_production_cost (id, description, value, is_percentage, created_by, updated_by, created_at, updated_at, active)
-SELECT gen_random_uuid(), 'Taxa Mercado Livre Cartão', 3.98, TRUE, 'system', 'system', CURRENT_DATE, CURRENT_DATE, TRUE
+SELECT 'c5d4e3f2-a1b0-4c9d-8e7f-6a5b4c3d2e1f', 'Taxa Mercado Livre Cartão', 3.98, TRUE, 'system', 'system', CURRENT_DATE, CURRENT_DATE, TRUE
 WHERE NOT EXISTS (
     SELECT 1 FROM tb_basic_production_cost WHERE description = 'Taxa Mercado Livre Cartão' OR description ILIKE 'Taxa Mercado Livre Cartão'
 );
 
--- 5. Garantir que se Taxa Mercado Livre Pix não existia, ela seja criada com 0.99%
+-- 5. Garantir que se Taxa Mercado Livre Pix nao existia, ela seja criada com 0.99% (usando UUID estatico)
 INSERT INTO tb_basic_production_cost (id, description, value, is_percentage, created_by, updated_by, created_at, updated_at, active)
-SELECT gen_random_uuid(), 'Taxa Mercado Livre Pix', 0.99, TRUE, 'system', 'system', CURRENT_DATE, CURRENT_DATE, TRUE
+SELECT 'd6e5f4a3-b2c1-4d0e-9f8a-7b6c5d4e3f2a', 'Taxa Mercado Livre Pix', 0.99, TRUE, 'system', 'system', CURRENT_DATE, CURRENT_DATE, TRUE
 WHERE NOT EXISTS (
     SELECT 1 FROM tb_basic_production_cost WHERE description = 'Taxa Mercado Livre Pix' OR description ILIKE 'Taxa Mercado Livre Pix'
 );
