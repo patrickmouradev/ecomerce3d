@@ -585,46 +585,17 @@ export const Checkout: React.FC = () => {
         customVariables: {
           baseColor: '#00f0ff'
         }
+      },
+      texts: {
+        cardholderName: {
+          placeholder: 'Nome Titular Cartão'
+        }
       }
     },
     paymentMethods: {
       maxInstallments: 12
     }
   }), []);
-
-  // Finaliza o Pedido (somente PIX via Chat com o Vendedor)
-  const handleFinalizeOrderPixChat = async () => {
-    setProcessingOrder(true);
-    setErrorMessage(null);
-    try {
-      const response = await api.post('/api/checkout/process', {
-        items: cartItems.map((i) => ({ productId: i.id, quantity: i.quantity })),
-        customerName: customerName.trim(),
-        cpf: cpf.replace(/\D/g, ''),
-        phone: phone.trim(),
-        address: {
-          ...address,
-          zipCode: address.zipCode.replace(/\D/g, ''),
-          federalUnit: address.federalUnit.trim().toUpperCase()
-        },
-        shippingServiceId: shippingServiceId ?? undefined,
-        paymentMethodId: 'pix_chat',
-        payerEmail: customerEmail || user?.email
-      });
-
-      const createdOrder: OrderResult = response.data;
-      setOrderResult(createdOrder);
-
-      // Limpa o carrinho e abre o Chat com o Vendedor na Etapa 4
-      saveCart([]);
-      setStep(4);
-    } catch (err: any) {
-      const msg = err.response?.data?.message || 'Falha ao registrar o pedido. Verifique os dados informados.';
-      setErrorMessage(msg);
-    } finally {
-      setProcessingOrder(false);
-    }
-  };
 
   // Navegação clicável pelo Stepper superior
   const handleStepClick = (targetStep: 1 | 2 | 3 | 4) => {
@@ -1600,24 +1571,6 @@ export const Checkout: React.FC = () => {
               </div>
             )}
 
-            {/* Opção alternativa de atendimento via Chat direto */}
-            <div style={{ marginTop: '1.5rem', textAlign: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-              <button
-                type="button"
-                onClick={handleFinalizeOrderPixChat}
-                disabled={processingOrder}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  fontSize: '0.82rem',
-                  textDecoration: 'underline'
-                }}
-              >
-                Prefere combinar o pagamento diretamente com o vendedor? Clique para abrir atendimento via Chat.
-              </button>
-            </div>
           </div>
 
           {/* Resumo Lateral de Conferência */}

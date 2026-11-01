@@ -6,7 +6,6 @@ import {
   Copy,
   Check,
   RefreshCw,
-  QrCode,
   CheckCircle,
   ExternalLink,
   User as UserIcon,
@@ -71,7 +70,6 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
-  const [pixKeyInput, setPixKeyInput] = useState(() => localStorage.getItem('3dprintpng_seller_pix_key') || '21958651800');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -194,14 +192,6 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
     }
   };
 
-  const handleSendPixTemplate = () => {
-    const cleanKey = pixKeyInput.trim() || '21958651800';
-    localStorage.setItem('3dprintpng_seller_pix_key', cleanKey);
-    const formattedTotal = orderTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const msg = `Segue os dados para pagamento via PIX do seu pedido #${displayOrderNumber} (${formattedTotal}):\n\nChave : ${cleanKey}\nTitular : Patrick Jose de Moura\n\nAssim que realizar o pagamento, me avise por aqui (você também pode anexar o comprovante em foto ou PDF)!`;
-    handleSendMessage(undefined, msg);
-  };
-
   const handleMarkAsPaid = async () => {
     if (updatingStatus) return;
     setUpdatingStatus(true);
@@ -259,17 +249,8 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
     }
   };
 
-  const extractPixKeyFromMessage = (text: string): string => {
-    const match = text.match(/Chave(?:\s*PIX)?\s*:\s*([^\n\r]+)/i);
-    if (match && match[1]) {
-      return match[1].trim();
-    }
-    return text;
-  };
-
   const handleCopyText = (id: string, text: string) => {
-    const valueToCopy = extractPixKeyFromMessage(text);
-    navigator.clipboard.writeText(valueToCopy);
+    navigator.clipboard.writeText(text);
     setCopiedMsgId(id);
     setTimeout(() => setCopiedMsgId(null), 2500);
   };
@@ -290,7 +271,7 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
       const targetPhone = (whatsappNumber || '').replace(/\D/g, '');
       const phoneWithCountry = targetPhone.length >= 10 && !targetPhone.startsWith('55') ? `55${targetPhone}` : targetPhone;
       const buyerIdentification = clientName ? `Olá! Meu nome é ${clientName} e acabei` : 'Olá! Acabei';
-      const text = `${buyerIdentification} de finalizar o pedido #${displayOrderNumber} na 3DPrintPNG${itemsSummary ? ` (${itemsSummary})` : ''}${formattedShipping}. Valor total: ${formattedTotal}. Gostaria de receber a chave PIX para pagamento!`;
+      const text = `${buyerIdentification} de finalizar o pedido #${displayOrderNumber} na 3DPrintPNG${itemsSummary ? ` (${itemsSummary})` : ''}${formattedShipping}. Valor total: ${formattedTotal}. Gostaria de acompanhar o status do meu pedido!`;
       return phoneWithCountry
         ? `https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(text)}`
         : `https://wa.me/?text=${encodeURIComponent(text)}`;
@@ -418,23 +399,6 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
             gap: '0.6rem'
           }}
         >
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Sua chave PIX ou Copia e Cola..."
-            value={pixKeyInput}
-            onChange={(e) => setPixKeyInput(e.target.value)}
-            style={{ flex: '1 1 220px', padding: '0.4rem 0.75rem', fontSize: '0.82rem', height: 'auto' }}
-          />
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleSendPixTemplate}
-            style={{ padding: '0.45rem 0.85rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-          >
-            <QrCode size={14} /> Enviar Chave PIX no Chat
-          </button>
-
           {orderStatus === 'PENDENTE' && (
             <button
               type="button"
@@ -449,7 +413,7 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
                 whiteSpace: 'nowrap'
               }}
             >
-              <CheckCircle size={14} /> Confirmar PIX Recebido (PAGO)
+              <CheckCircle size={14} /> Confirmar Pagamento (PAGO)
             </button>
           )}
 
@@ -661,7 +625,7 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
                         }}
                       >
                         {copiedMsgId === msg.id ? <Check size={12} /> : <Copy size={12} />}
-                        {copiedMsgId === msg.id ? 'Copiado!' : 'Copiar mensagem / PIX'}
+                        {copiedMsgId === msg.id ? 'Copiado!' : 'Copiar texto'}
                       </button>
                     </div>
                   )}
@@ -809,7 +773,7 @@ export const OrderChatBox: React.FC<OrderChatBoxProps> = ({
           placeholder={
             mode === 'buyer'
               ? 'Digite sua mensagem ou anexe o comprovante PIX / foto / PDF...'
-              : 'Digite a mensagem, envie a chave PIX ou anexe uma foto/PDF...'
+              : 'Digite a mensagem ou anexe uma foto/PDF...'
           }
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
