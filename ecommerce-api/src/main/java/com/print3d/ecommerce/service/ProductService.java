@@ -113,6 +113,15 @@ public class ProductService {
                         .toList();
         boolean isMultiColor = Boolean.TRUE.equals(dto.getMultiColor()) || validColors.isEmpty();
         boolean isKit = Boolean.TRUE.equals(dto.getIsKit());
+
+        BigDecimal salePriceMercadoLivrePix = dto.getSalePriceMercadoLivrePix() != null
+                ? dto.getSalePriceMercadoLivrePix()
+                : (dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO);
+
+        BigDecimal salePriceMercadoLivreCard = dto.getSalePriceMercadoLivreCard() != null
+                ? dto.getSalePriceMercadoLivreCard()
+                : (dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO);
+
         Product product = Product.builder()
                 .name(dto.getName().trim())
                 .description(dto.getDescription())
@@ -120,7 +129,9 @@ public class ProductService {
                 .profitMargin(dto.getProfitMargin())
                 .salePriceParticular(dto.getSalePriceParticular())
                 .salePriceShoppe(dto.getSalePriceShoppe())
-                .salePriceMercadoLivre(dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO)
+                .salePriceMercadoLivre(salePriceMercadoLivrePix)
+                .salePriceMercadoLivrePix(salePriceMercadoLivrePix)
+                .salePriceMercadoLivreCard(salePriceMercadoLivreCard)
                 .multiColor(isMultiColor)
                 .isKit(isKit)
                 .active(dto.getActive() != null ? dto.getActive() : true)
@@ -211,7 +222,19 @@ public class ProductService {
         product.setProfitMargin(dto.getProfitMargin());
         product.setSalePriceParticular(dto.getSalePriceParticular());
         product.setSalePriceShoppe(dto.getSalePriceShoppe());
-        product.setSalePriceMercadoLivre(dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : BigDecimal.ZERO);
+
+        BigDecimal salePriceMercadoLivrePix = dto.getSalePriceMercadoLivrePix() != null
+                ? dto.getSalePriceMercadoLivrePix()
+                : (dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : product.getSalePriceMercadoLivrePix());
+
+        BigDecimal salePriceMercadoLivreCard = dto.getSalePriceMercadoLivreCard() != null
+                ? dto.getSalePriceMercadoLivreCard()
+                : (dto.getSalePriceMercadoLivre() != null ? dto.getSalePriceMercadoLivre() : product.getSalePriceMercadoLivreCard());
+
+        product.setSalePriceMercadoLivre(salePriceMercadoLivrePix);
+        product.setSalePriceMercadoLivrePix(salePriceMercadoLivrePix);
+        product.setSalePriceMercadoLivreCard(salePriceMercadoLivreCard);
+
         product.setMultiColor(isMultiColor);
         product.setKit(isKit);
         if (dto.getActive() != null) {
@@ -272,14 +295,13 @@ public class ProductService {
             }
         }
 
-        Product updated = productRepository.save(product);
+        Product saved = productRepository.save(product);
 
-        // Sincroniza as imagens escolhidas para o banner do produto
         if (dto.getBannerImagesPaths() != null) {
-            syncProductBanners(updated, dto.getBannerImagesPaths());
+            syncProductBanners(saved, dto.getBannerImagesPaths());
         }
 
-        return convertToDto(updated);
+        return convertToDto(saved);
     }
 
     @Transactional
@@ -428,14 +450,14 @@ public class ProductService {
                 accessoriesDto.add(ProductAccessoryDto.builder()
                         .accessoryId(pa.getAccessory().getId())
                         .description(pa.getAccessory().getDescription())
-                        .price(pa.getAccessory().getPrice())
                         .quantity(pa.getQuantity())
+                        .price(pa.getAccessory().getPrice())
                         .build());
             }
         }
 
         List<String> colorsDto = new ArrayList<>();
-        if (!product.isMultiColor() && product.getAvailableColors() != null) {
+        if (product.getAvailableColors() != null) {
             for (ProductColor pc : product.getAvailableColors()) {
                 if (pc.getColor() != null && !pc.getColor().trim().isEmpty()) {
                     colorsDto.add(pc.getColor().trim());
@@ -482,20 +504,28 @@ public class ProductService {
                 .suggestedPriceShoppe(pricing.getSuggestedPriceShoppe())
                 .suggestedPriceParticular(pricing.getSuggestedPriceParticular())
                 .suggestedPriceMercadoLivre(pricing.getSuggestedPriceMercadoLivre())
+                .suggestedPriceMercadoLivrePix(pricing.getSuggestedPriceMercadoLivrePix())
+                .suggestedPriceMercadoLivreCard(pricing.getSuggestedPriceMercadoLivreCard())
                 .netProfit(pricing.getNetProfit())
                 .netProfitShoppe(pricing.getNetProfitShoppe())
                 .netProfitMercadoLivre(pricing.getNetProfitMercadoLivre())
+                .netProfitMercadoLivrePix(pricing.getNetProfitMercadoLivrePix())
+                .netProfitMercadoLivreCard(pricing.getNetProfitMercadoLivreCard())
                 .energyCostTotal(pricing.getEnergyCostTotal())
                 .printerWearTotal(pricing.getPrinterWearTotal())
                 .packagingCost(pricing.getPackagingCost())
                 .accessoryCostTotal(pricing.getAccessoryCostTotal())
                 .shopeeCostsTotal(pricing.getShopeeCostsTotal())
                 .mercadoLivreCostsTotal(pricing.getMercadoLivreCostsTotal())
+                .mercadoLivrePixCostsTotal(pricing.getMercadoLivrePixCostsTotal())
+                .mercadoLivreCardCostsTotal(pricing.getMercadoLivreCardCostsTotal())
                 .productionCostWithoutShoppe(pricing.getProductionCostWithoutShoppe())
                 .profitMargin(product.getProfitMargin())
                 .salePriceParticular(product.getSalePriceParticular())
                 .salePriceShoppe(product.getSalePriceShoppe())
-                .salePriceMercadoLivre(product.getSalePriceMercadoLivre() != null ? product.getSalePriceMercadoLivre() : BigDecimal.ZERO)
+                .salePriceMercadoLivre(product.getSalePriceMercadoLivrePix())
+                .salePriceMercadoLivrePix(product.getSalePriceMercadoLivrePix())
+                .salePriceMercadoLivreCard(product.getSalePriceMercadoLivreCard())
                 .active(product.isActive())
                 .imagesVideosPaths(product.getImagesVideosPaths())
                 .bannerImagesPaths(bannerPaths)

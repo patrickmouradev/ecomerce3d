@@ -12,7 +12,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/webhooks/mercadopago")
-@Tag(name = "Webhooks - Mercado Pago", description = "Endpoint público para receber notificações automáticas de pagamento (PIX/Cartão)")
+@Tag(name = "Webhooks - Mercado Pago", description = "Endpoint público para receber notificações automáticas de pagamento (PIX/Cartão/Orders)")
 public class MercadoPagoWebhookController {
 
     private static final Logger log = LoggerFactory.getLogger(MercadoPagoWebhookController.class);
@@ -24,7 +24,7 @@ public class MercadoPagoWebhookController {
     }
 
     @PostMapping
-    @Operation(summary = "Recebe notificações de eventos de pagamento do Mercado Pago")
+    @Operation(summary = "Recebe notificações de eventos de pagamento do Mercado Pago (Orders ou Payments)")
     @SuppressWarnings("unchecked")
     public ResponseEntity<Map<String, String>> receiveWebhook(
             @RequestParam(value = "data.id", required = false) String queryDataId,
@@ -41,6 +41,9 @@ public class MercadoPagoWebhookController {
                 if (type == null && body.get("type") != null) {
                     type = String.valueOf(body.get("type"));
                 }
+                if (type == null && body.get("action") != null) {
+                    type = String.valueOf(body.get("action"));
+                }
                 if (paymentId == null && body.get("data") instanceof Map) {
                     Map<String, Object> dataMap = (Map<String, Object>) body.get("data");
                     if (dataMap.get("id") != null) {
@@ -49,9 +52,9 @@ public class MercadoPagoWebhookController {
                 }
             }
 
-            log.info("Webhook Mercado Pago recebido: type={}, paymentId={}", type, paymentId);
+            log.info("Webhook Mercado Pago recebido: type={}, id={}", type, paymentId);
 
-            if (paymentId != null && (type == null || type.contains("payment"))) {
+            if (paymentId != null && (type == null || type.contains("payment") || type.contains("order"))) {
                 checkoutService.processWebhookNotification(paymentId);
             }
         } catch (Exception e) {

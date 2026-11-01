@@ -20,7 +20,8 @@ import {
   Truck,
   Package,
   Sparkles,
-  Star
+  Star,
+  CreditCard
 } from 'lucide-react';
 
 interface Product {
@@ -28,6 +29,8 @@ interface Product {
   name: string;
   description: string;
   salePriceParticular: number;
+  salePriceMercadoLivrePix?: number;
+  salePriceMercadoLivreCard?: number;
   weightG?: number;
   multiColor?: boolean;
   availableColors?: string[];
@@ -398,10 +401,10 @@ const ProductCard: React.FC<{
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', gap: '0.5rem' }}>
           <div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>
-              Preço final
+              Valor no Pix
             </span>
             <span style={{ fontSize: '1.35rem', color: 'var(--success)', fontWeight: 800 }}>
-              {product.salePriceParticular?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              {(product.salePriceMercadoLivrePix ?? product.salePriceParticular)?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
 
@@ -497,8 +500,10 @@ const ProductDetailModal: React.FC<{
     setSelectedMediaIndex((prev) => (prev - 1 + mediaList.length) % mediaList.length);
   };
 
-  const unitPrice = product.salePriceParticular || 0;
-  const totalPrice = unitPrice * quantity;
+  const unitPricePix = product.salePriceMercadoLivrePix ?? product.salePriceParticular ?? 0;
+  const unitPriceCard = product.salePriceMercadoLivreCard ?? product.salePriceParticular ?? 0;
+  const totalPricePix = unitPricePix * quantity;
+  const totalPriceCard = unitPriceCard * quantity;
 
   return (
     <div
@@ -757,29 +762,60 @@ const ProductDetailModal: React.FC<{
                 {product.name}
               </h2>
 
-              {/* Box de Preço Unitário */}
+              {/* Box de Preço Unitário com Diferenciação Pix vs Cartão */}
               <div
                 style={{
                   display: 'flex',
-                  alignItems: 'baseline',
-                  gap: '0.75rem',
+                  flexDirection: 'column',
+                  gap: '0.65rem',
                   background: 'rgba(0, 255, 136, 0.05)',
-                  border: '1px solid rgba(0, 255, 136, 0.2)',
+                  border: '1px solid rgba(0, 255, 136, 0.25)',
                   borderRadius: 'var(--radius-md)',
-                  padding: '0.75rem 1rem'
+                  padding: '0.85rem 1.15rem'
                 }}
               >
-                <div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>
-                    Preço Unitário
-                  </span>
-                  <span style={{ fontSize: '1.8rem', color: 'var(--success)', fontWeight: 800 }}>
-                    {unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>
+                      Preço no PIX
+                    </span>
+                    <span style={{ fontSize: '1.9rem', color: 'var(--success)', fontWeight: 800 }}>
+                      {unitPricePix.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.78rem',
+                      color: 'var(--success)',
+                      background: 'rgba(0, 255, 136, 0.14)',
+                      border: '1px solid rgba(0, 255, 136, 0.3)',
+                      borderRadius: '20px',
+                      padding: '0.2rem 0.65rem',
+                      fontWeight: 700
+                    }}
+                  >
+                    ⚡ Melhor Preço à vista
                   </span>
                 </div>
-                <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600, marginLeft: 'auto' }}>
-                  Pagamento via PIX
-                </span>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderTop: '1px solid rgba(255,255,255,0.08)',
+                    paddingTop: '0.55rem',
+                    color: 'var(--text-secondary)'
+                  }}
+                >
+                  <span style={{ fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-primary)' }}>
+                    <CreditCard size={16} style={{ color: 'var(--primary)' }} />
+                    Cartão de Crédito:
+                  </span>
+                  <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>
+                    {unitPriceCard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -943,9 +979,14 @@ const ProductDetailModal: React.FC<{
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
                   Subtotal ({quantity}x)
                 </span>
-                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--primary)' }}>
-                  {totalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--success)' }}>
+                  {totalPricePix.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </div>
+                {unitPriceCard !== unitPricePix && (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.1rem' }}>
+                    ou {totalPriceCard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} no cartão
+                  </span>
+                )}
               </div>
             </div>
 
@@ -976,7 +1017,7 @@ const ProductDetailModal: React.FC<{
                 ) : (
                   <>
                     <ShoppingCart size={20} />
-                    Adicionar ao Carrinho • {totalPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    Adicionar ao Carrinho • {totalPricePix.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </>
                 )}
               </button>
@@ -1435,14 +1476,22 @@ export const Catalog: React.FC = () => {
         (item: any) => item.id === product.id && (item.selectedColor || '') === (selectedColor || '')
       );
 
+      const pixPrice = product.salePriceMercadoLivrePix ?? product.salePriceParticular ?? 0;
+      const cardPrice = product.salePriceMercadoLivreCard ?? product.salePriceParticular ?? 0;
+
       if (existingIndex >= 0) {
         existingCart[existingIndex].quantity = (existingCart[existingIndex].quantity || 1) + quantity;
+        existingCart[existingIndex].price = pixPrice;
+        existingCart[existingIndex].pricePix = pixPrice;
+        existingCart[existingIndex].priceCard = cardPrice;
       } else {
         existingCart.push({
           id: product.id,
           name: displayName,
           selectedColor: selectedColor || null,
-          price: product.salePriceParticular,
+          price: pixPrice,
+          pricePix: pixPrice,
+          priceCard: cardPrice,
           quantity: quantity,
           image: product.imagesVideosPaths && product.imagesVideosPaths.length > 0 ? product.imagesVideosPaths[0] : null,
           filaments: product.filaments

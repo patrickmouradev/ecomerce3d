@@ -149,9 +149,27 @@ pipeline {
             steps {
                 echo '=== Verificando se o Backend respondeu ao health check ==='
                 sh '''
-                    sleep 20
-                    curl -f http://${CONTAINER_NAME}:${APP_PORT}/v3/api-docs || \
-                        (echo "ERRO: Backend nao respondeu ao health check!" && exit 1)
+                    echo "Aguardando inicializacao do container ${CONTAINER_NAME} na porta ${APP_PORT}..."
+                    UP=0
+                    for i in $(seq 1 18); do
+                        sleep 5
+                        echo "Tentativa $i de 18: testando conexao com http://${CONTAINER_NAME}:${APP_PORT}/v3/api-docs ..."
+                        if curl -s -f http://${CONTAINER_NAME}:${APP_PORT}/v3/api-docs > /dev/null 2>&1; then
+                            echo "SUCESSO: Backend respondeu ao health check!"
+                            UP=1
+                            break
+                        fi
+                    done
+
+                    if [ $UP -ne 1 ]; then
+                        echo "=========================================================="
+                        echo "ERRO: Backend nao respondeu dentro de 90 segundos!"
+                        echo "Logs recentes do container ${CONTAINER_NAME}:"
+                        echo "=========================================================="
+                        docker logs --tail 150 ${CONTAINER_NAME} || true
+                        echo "=========================================================="
+                        exit 1
+                    fi
                 '''
             }
         }

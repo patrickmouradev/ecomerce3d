@@ -3,16 +3,16 @@ version: '3.8'
 services:
   # Banco de Dados PostgreSQL
   postgres:
-    image: patrickmoura/3dprintpng-db:latest
-    container_name: dprintpng-db
+    image: postgres:16-alpine
+    container_name: 3dprintpng-postgres
     environment:
       POSTGRES_DB: ecommerce_db
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - 3dprintpng_postgres_data:/var/lib/postgresql/data
     networks:
       - ecommerce-net
     healthcheck:
@@ -67,7 +67,7 @@ services:
       - ecommerce-net
 
 volumes:
-  postgres_data:
+  3dprintpng_postgres_data:
     driver: local
 
 networks:

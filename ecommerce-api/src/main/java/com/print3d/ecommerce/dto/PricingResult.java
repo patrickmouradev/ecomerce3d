@@ -16,10 +16,14 @@ public class PricingResult {
     private BigDecimal suggestedPrice; // Mantido para compatibilidade (Shoppe)
     private BigDecimal suggestedPriceShoppe;
     private BigDecimal suggestedPriceParticular;
-    private BigDecimal suggestedPriceMercadoLivre;
+    private BigDecimal suggestedPriceMercadoLivre; // Legado / Fallback Pix
+    private BigDecimal suggestedPriceMercadoLivrePix;
+    private BigDecimal suggestedPriceMercadoLivreCard;
     private BigDecimal netProfit; // Lucro Sem Custos Shoppe (Particular)
     private BigDecimal netProfitShoppe; // Lucro Com Custos Shoppe
-    private BigDecimal netProfitMercadoLivre; // Lucro Com Custos Mercado Livre
+    private BigDecimal netProfitMercadoLivre; // Legado / Fallback Pix
+    private BigDecimal netProfitMercadoLivrePix;
+    private BigDecimal netProfitMercadoLivreCard;
     
     private BigDecimal energyCostTotal;
     private BigDecimal printerWearTotal;
@@ -27,5 +31,7 @@ public class PricingResult {
     private BigDecimal accessoryCostTotal;
     private BigDecimal shopeeCostsTotal;
     private BigDecimal mercadoLivreCostsTotal;
+    private BigDecimal mercadoLivrePixCostsTotal;
+    private BigDecimal mercadoLivreCardCostsTotal;
     private BigDecimal productionCostWithoutShoppe;
 }

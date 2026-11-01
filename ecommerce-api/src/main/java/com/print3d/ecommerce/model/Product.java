@@ -69,21 +69,18 @@ public class Product {
     @Builder.Default
     private BigDecimal salePriceMercadoLivre = BigDecimal.ZERO;
 
+    @Column(name = "sale_price_mercado_livre_pix", precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal salePriceMercadoLivrePix = BigDecimal.ZERO;
+
+    @Column(name = "sale_price_mercado_livre_card", precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal salePriceMercadoLivreCard = BigDecimal.ZERO;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean active = true;
 
-    // Hibernate maps dynamic array string to pg text[] or TEXT mapping
-    // We can map it as element collection or standard attribute converter or just a custom parser.
-    // For Flyway text[], using PostgreSQL list collection is mapped natively or using @ElementCollection.
-    // Let's use @ElementCollection with a JoinTable to keep it standard across Hibernate dialects,
-    // or keep it as simple list with database text[] using simple Converter or ElementCollection.
-    // Actually, ElementCollection with a separate table tb_product_media is highly standard and fully safe!
-    // But since the database table `tb_product` was already created with `images_videos_paths TEXT[]` in Flyway,
-    // let's use a JPA Converter that converts List<String> to SQL Array (or maps natively).
-    // Mapping TEXT[] in Postgres via hibernate 6 is natively supported by List<String>.
-    // Let's see: Hibernate 6 natively maps List<String> to TEXT[] using @Column(columnDefinition = "text[]").
-    // Let's do that! It is very elegant.
     @Column(name = "images_videos_paths", columnDefinition = "text[]")
     private List<String> imagesVideosPaths;
 
@@ -94,4 +91,24 @@ public class Product {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public BigDecimal getSalePriceMercadoLivrePix() {
+        if (salePriceMercadoLivrePix != null && salePriceMercadoLivrePix.compareTo(BigDecimal.ZERO) > 0) {
+            return salePriceMercadoLivrePix;
+        }
+        if (salePriceMercadoLivre != null && salePriceMercadoLivre.compareTo(BigDecimal.ZERO) > 0) {
+            return salePriceMercadoLivre;
+        }
+        return salePriceParticular != null ? salePriceParticular : BigDecimal.ZERO;
+    }
+
+    public BigDecimal getSalePriceMercadoLivreCard() {
+        if (salePriceMercadoLivreCard != null && salePriceMercadoLivreCard.compareTo(BigDecimal.ZERO) > 0) {
+            return salePriceMercadoLivreCard;
+        }
+        if (salePriceMercadoLivre != null && salePriceMercadoLivre.compareTo(BigDecimal.ZERO) > 0) {
+            return salePriceMercadoLivre;
+        }
+        return salePriceParticular != null ? salePriceParticular : BigDecimal.ZERO;
+    }
 }
