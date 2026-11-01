@@ -1,0 +1,49 @@
+{
+  "name": "3DPrintPNG - Impressão 3D e Colecionáveis",
+  "short_name": "3DPrintPNG",
+  "description": "E-commerce especializado em impressão 3D, action figures, colecionáveis, peças personalizadas e filamentos de alta qualidade.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08090c",
+  "theme_color": "#08090c",
+  "lang": "pt-BR",
+  "categories": [
+    "shopping",
+    "lifestyle",
+    "business"
+  ],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Catálogo",
+      "url": "/catalog",
+      "description": "Veja todos os produtos e impressões 3D"
+    },
+    {
+      "name": "Meus Pedidos",
+      "url": "/meus-pedidos",
+      "description": "Acompanhe seus pedidos e entregas"
+    }
+  ]
+}

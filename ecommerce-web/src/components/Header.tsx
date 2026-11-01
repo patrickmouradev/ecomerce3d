@@ -21,9 +21,11 @@ import {
   LayoutDashboard,
   Grid,
   Activity,
-  Star
+  Star,
+  Bell
 } from 'lucide-react';
 import logoImg from '../assets/logo-loja.jpg';
+import { InstallPwaButton } from './InstallPwaButton';
 
 export const Header: React.FC = () => {
   const { user, logout, activeRole, roles, switchProfile, updateProfileDetails } = useAuth();
@@ -353,6 +355,26 @@ export const Header: React.FC = () => {
                       <Star size={15} style={{ color: '#ffc107' }} />
                       Avaliações
                     </Link>
+
+                    <Link
+                      to="/admin/notificacoes"
+                      onClick={() => setAdminDropdownOpen(false)}
+                      className="dropdown-item"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.6rem 0.8rem',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text-primary)',
+                        textDecoration: 'none',
+                        fontSize: '0.9rem',
+                        fontWeight: 500
+                      }}
+                    >
+                      <Bell size={15} style={{ color: 'var(--primary)' }} />
+                      Notificações Push
+                    </Link>
                   </div>
                 )}
               </div>
@@ -367,8 +389,9 @@ export const Header: React.FC = () => {
           )}
         </nav>
 
-        {/* Ações Desktop (Carrinho + Login/Perfil) */}
+        {/* Ações Desktop (PWA + Carrinho + Login/Perfil) */}
         <div className="header-desktop-actions">
+          <InstallPwaButton />
           <Link
             to="/checkout"
             title="Ver Carrinho e Finalizar Compra"
@@ -611,8 +634,9 @@ export const Header: React.FC = () => {
           )}
         </div>
 
-        {/* Ações Mobile (Botão Carrinho Compacto + Botão Sanduíche Lateral) */}
+        {/* Ações Mobile (Instalação PWA + Botão Carrinho Compacto + Botão Sanduíche Lateral) */}
         <div className="header-mobile-actions">
+          <InstallPwaButton />
           <Link
             to="/checkout"
             title="Ver Carrinho"
@@ -1096,6 +1120,22 @@ export const Header: React.FC = () => {
                     >
                       <DollarSign size={16} style={{ color: 'var(--primary)' }} />
                       Custo Produção
+                    </Link>
+                    <Link
+                      to="/admin/notificacoes"
+                      onClick={() => setMobileMenuOpen(false)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '0.65rem 0.85rem',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.88rem'
+                      }}
+                    >
+                      <Bell size={16} style={{ color: 'var(--primary)' }} />
+                      Notificações Push
                     </Link>
                   </>
                 )}

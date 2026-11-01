@@ -66,6 +66,13 @@ public class Order {
     @Column(name = "tracking_code")
     private String trackingCode;
 
+    @Column(name = "pending_push_count", nullable = false)
+    @Builder.Default
+    private int pendingPushCount = 0;
+
+    @Column(name = "last_pending_push_at")
+    private LocalDateTime lastPendingPushAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -16,6 +16,7 @@ import Accessories from './pages/admin/Accessories';
 import Dashboard from './pages/admin/Dashboard';
 import Visitors from './pages/admin/Visitors';
 import Reviews from './pages/admin/Reviews';
+import PushNotifications from './pages/admin/PushNotifications';
 import AdminGuard from './components/AdminGuard';
 import { trackSiteEvent } from './services/analyticsService';
 
@@ -120,6 +121,14 @@ function App() {
                 element={
                   <AdminGuard>
                     <Reviews />
+                  </AdminGuard>
+                } 
+              />
+              <Route 
+                path="/admin/notificacoes" 
+                element={
+                  <AdminGuard>
+                    <PushNotifications />
                   </AdminGuard>
                 } 
               />
