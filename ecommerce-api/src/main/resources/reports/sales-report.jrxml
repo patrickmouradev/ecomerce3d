@@ -92,7 +92,7 @@
             <textField>
                 <reportElement x="0" y="2" width="100" height="20" uuid="b5c4dbd8-32a1-4322-bd53-0c4e037b561c"/>
                 <textElement verticalAlignment="Middle"/>
-                <textFieldExpression><![CDATA[$F{orderId}.substring(0, 8) + "..."]]></textFieldExpression>
+                <textFieldExpression><![CDATA[$F{orderId} != null ? $F{orderId} : "-"]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="110" y="2" width="160" height="20" uuid="a7281bc8-53e1-45bc-926b-12d8376ac12b"/>

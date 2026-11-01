@@ -41,13 +41,24 @@ public class ReportService {
             
             // Mapeia para os DTOs do relatório
             List<SalesReportRowDto> reportData = orders.stream()
-                    .map(o -> SalesReportRowDto.builder()
-                            .orderId(o.getOrderNumber() != null ? String.valueOf(o.getOrderNumber()) : o.getId().toString())
-                            .clientName(o.getUser().getName())
-                            .status(o.getStatus())
-                            .totalAmount(o.getTotalAmount().doubleValue())
-                            .createdAt(o.getCreatedAt().format(DatePatterns.DATE_FORMATTER))
-                            .build())
+                    .map(o -> {
+                        String idDisplay;
+                        if (o.getOrderNumber() != null) {
+                            idDisplay = "#" + o.getOrderNumber();
+                        } else if (o.getId() != null) {
+                            String strId = o.getId().toString();
+                            idDisplay = strId.length() > 8 ? strId.substring(0, 8) + "..." : strId;
+                        } else {
+                            idDisplay = "-";
+                        }
+                        return SalesReportRowDto.builder()
+                                .orderId(idDisplay)
+                                .clientName(o.getUser() != null ? o.getUser().getName() : "Cliente Desconhecido")
+                                .status(o.getStatus() != null ? o.getStatus() : "-")
+                                .totalAmount(o.getTotalAmount() != null ? o.getTotalAmount().doubleValue() : 0.0)
+                                .createdAt(o.getCreatedAt() != null ? o.getCreatedAt().format(DatePatterns.DATE_FORMATTER) : "-")
+                                .build();
+                    })
                     .toList();
 
             // 4. Cria o DataSource do Jasper

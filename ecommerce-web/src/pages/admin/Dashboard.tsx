@@ -14,7 +14,12 @@ import {
   MapPin,
   Truck,
   Save,
-  Activity
+  Activity,
+  Layers,
+  Box,
+  Package,
+  CheckCheck,
+  XCircle
 } from 'lucide-react';
 
 interface OrderItem {
@@ -61,6 +66,7 @@ export const Dashboard: React.FC = () => {
   // Ordenação
   const [sortBy, setSortBy] = useState('createdAt');
   const [direction, setDirection] = useState('desc');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const [downloadingReport, setDownloadingReport] = useState(false);
 
@@ -162,14 +168,146 @@ export const Dashboard: React.FC = () => {
 
   // Métricas do Dashboard
   const isPaidOrderStatus = (status: string) =>
-    status === 'PAGO' || status === 'AGUARDANDO RETIRADA' || status === 'ENVIADO' || status === 'ENTREGUE';
+    status === 'PAGO' ||
+    status === 'AGUARDANDO RETIRADA' ||
+    status === 'AGUARDANDO ENVIO' ||
+    status === 'ENVIADO' ||
+    status === 'ENTREGUE';
 
   const totalVendas = orders.reduce(
     (sum, o) => sum + (isPaidOrderStatus(o.status) ? o.totalAmount : 0),
     0
   );
   const totalPedidos = orders.length;
-  const pedidosPendentes = orders.filter((o) => o.status === 'PENDENTE').length;
+
+  const countPending = orders.filter((o) => o.status === 'PENDENTE').length;
+  const countPaid = orders.filter((o) => o.status === 'PAGO').length;
+  const countAwaitingPickup = orders.filter((o) => o.status === 'AGUARDANDO RETIRADA').length;
+  const countAwaitingShipping = orders.filter((o) => o.status === 'AGUARDANDO ENVIO').length;
+  const countCompleted = orders.filter((o) => o.status === 'ENVIADO' || o.status === 'ENTREGUE').length;
+  const countCancelled = orders.filter((o) => o.status === 'CANCELADO').length;
+
+  const filteredOrders = orders.filter((order) => {
+    if (!statusFilter || statusFilter === 'TODOS') return true;
+    if (statusFilter === 'CONCLUIDO') {
+      return order.status === 'ENVIADO' || order.status === 'ENTREGUE';
+    }
+    return order.status === statusFilter;
+  });
+
+  const getStatusBadgeStyle = (status: string) => {
+    switch (status) {
+      case 'PENDENTE':
+        return {
+          bg: 'rgba(255, 183, 0, 0.12)',
+          color: 'var(--warning)',
+          border: '1px solid rgba(255, 183, 0, 0.3)'
+        };
+      case 'PAGO':
+        return {
+          bg: 'rgba(56, 189, 248, 0.15)',
+          color: '#38bdf8',
+          border: '1px solid rgba(56, 189, 248, 0.35)'
+        };
+      case 'AGUARDANDO RETIRADA':
+        return {
+          bg: 'rgba(192, 132, 252, 0.15)',
+          color: '#c084fc',
+          border: '1px solid rgba(192, 132, 252, 0.35)'
+        };
+      case 'AGUARDANDO ENVIO':
+        return {
+          bg: 'rgba(251, 146, 60, 0.15)',
+          color: '#fb923c',
+          border: '1px solid rgba(251, 146, 60, 0.35)'
+        };
+      case 'ENVIADO':
+      case 'ENTREGUE':
+        return {
+          bg: 'var(--success-glow)',
+          color: 'var(--success)',
+          border: '1px solid rgba(0, 255, 136, 0.3)'
+        };
+      case 'CANCELADO':
+        return {
+          bg: 'rgba(248, 113, 113, 0.15)',
+          color: '#f87171',
+          border: '1px solid rgba(248, 113, 113, 0.35)'
+        };
+      default:
+        return {
+          bg: 'rgba(255, 255, 255, 0.08)',
+          color: 'var(--text-secondary)',
+          border: '1px solid var(--border-color)'
+        };
+    }
+  };
+
+  const statusCards = [
+    {
+      key: 'TODOS',
+      label: 'Todos',
+      sublabel: 'Visão Geral',
+      count: totalPedidos,
+      icon: Layers,
+      color: 'var(--primary)',
+      glow: 'var(--primary-glow)'
+    },
+    {
+      key: 'PENDENTE',
+      label: 'Aguardando PIX',
+      sublabel: 'Pendentes',
+      count: countPending,
+      icon: Clock,
+      color: 'var(--warning)',
+      glow: 'rgba(255, 183, 0, 0.2)'
+    },
+    {
+      key: 'PAGO',
+      label: 'Pago',
+      sublabel: 'Em Produção 3D',
+      count: countPaid,
+      icon: Box,
+      color: '#38bdf8',
+      glow: 'rgba(56, 189, 248, 0.2)'
+    },
+    {
+      key: 'AGUARDANDO RETIRADA',
+      label: 'Aguardando Retirada',
+      sublabel: 'Pronto no Balcão',
+      count: countAwaitingPickup,
+      icon: MapPin,
+      color: '#c084fc',
+      glow: 'rgba(192, 132, 252, 0.2)'
+    },
+    {
+      key: 'AGUARDANDO ENVIO',
+      label: 'Aguardando Envio',
+      sublabel: 'Fila de Correios',
+      count: countAwaitingShipping,
+      icon: Package,
+      color: '#fb923c',
+      glow: 'rgba(251, 146, 60, 0.2)'
+    },
+    {
+      key: 'CONCLUIDO',
+      label: 'Concluídos',
+      sublabel: 'Enviado / Entregue',
+      count: countCompleted,
+      icon: CheckCheck,
+      color: 'var(--success)',
+      glow: 'var(--success-glow)'
+    },
+    {
+      key: 'CANCELADO',
+      label: 'Cancelados',
+      sublabel: 'Devolvidos / Nulos',
+      count: countCancelled,
+      icon: XCircle,
+      color: '#f87171',
+      glow: 'rgba(248, 113, 113, 0.2)'
+    }
+  ];
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1240px', margin: '0 auto' }}>
@@ -211,16 +349,16 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Cards de Métricas */}
+      {/* Seção 1: Cards de Métricas Globais (Macro) */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '3rem'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '1.25rem',
+          marginBottom: '2rem'
         }}
       >
-        <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="glass-panel" style={{ padding: '1.25rem 1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ background: 'var(--success-glow)', color: 'var(--success)', padding: '0.75rem', borderRadius: '50%' }}>
             <TrendingUp size={24} />
           </div>
@@ -228,47 +366,162 @@ export const Dashboard: React.FC = () => {
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>
               Receita Total (Paga)
             </span>
-            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>
+            <span style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fff' }}>
               {totalVendas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
         </div>
 
-        <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="glass-panel" style={{ padding: '1.25rem 1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ background: 'var(--primary-glow)', color: 'var(--primary)', padding: '0.75rem', borderRadius: '50%' }}>
             <CheckCircle size={24} />
           </div>
           <div>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>
-              Total de Pedidos
+              Total Geral de Pedidos
             </span>
-            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>{totalPedidos}</span>
-          </div>
-        </div>
-
-        <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ background: 'rgba(255, 183, 0, 0.1)', color: 'var(--warning)', padding: '0.75rem', borderRadius: '50%' }}>
-            <Clock size={24} />
-          </div>
-          <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>
-              Aguardando PIX (Pendentes)
-            </span>
-            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>{pedidosPendentes}</span>
+            <span style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fff' }}>{totalPedidos}</span>
           </div>
         </div>
       </div>
 
+      {/* Seção 2: Esteira de Status Interativa (Filtro por Cards) */}
+      <div style={{ marginBottom: '2.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Filtrar Pedidos por Status
+          </span>
+          {statusFilter && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter(null)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '999px',
+                padding: '0.25rem 0.75rem',
+                color: 'var(--primary)',
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              <X size={12} /> Limpar Filtro ({statusFilter})
+            </button>
+          )}
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))',
+            gap: '0.75rem'
+          }}
+        >
+          {statusCards.map((card) => {
+            const IconComponent = card.icon;
+            const isSelected = (statusFilter === null && card.key === 'TODOS') || statusFilter === card.key;
+            return (
+              <div
+                key={card.key}
+                className="glass-panel"
+                onClick={() => {
+                  if (card.key === 'TODOS') {
+                    setStatusFilter(null);
+                  } else {
+                    setStatusFilter((prev) => (prev === card.key ? null : card.key));
+                  }
+                }}
+                style={{
+                  padding: '0.9rem 1rem',
+                  borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer',
+                  border: isSelected ? `1.5px solid ${card.color}` : '1px solid var(--border-color)',
+                  background: isSelected ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.015)',
+                  boxShadow: isSelected ? `0 0 16px ${card.glow}` : 'none',
+                  transform: isSelected ? 'translateY(-2px)' : 'none',
+                  transition: 'all 0.2s ease',
+                  userSelect: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
+                  <div
+                    style={{
+                      background: card.glow,
+                      color: card.color,
+                      padding: '0.45rem',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <IconComponent size={18} />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '1.4rem',
+                      fontWeight: 800,
+                      color: isSelected ? card.color : '#fff',
+                      lineHeight: 1
+                    }}
+                  >
+                    {card.count}
+                  </span>
+                </div>
+
+                <div>
+                  <span
+                    style={{
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      color: isSelected ? '#fff' : 'var(--text-secondary)',
+                      display: 'block',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
+                  >
+                    {card.label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      color: 'var(--text-muted, #71717a)',
+                      display: 'block'
+                    }}
+                  >
+                    {card.sublabel}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Listagem de Vendas */}
-      <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', marginBottom: '1.25rem' }}>
-        Pedidos Recebidos
-      </h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-display)', margin: 0 }}>
+          Pedidos Recebidos{' '}
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 400 }}>
+            ({filteredOrders.length} {filteredOrders.length === 1 ? 'pedido' : 'pedidos'})
+          </span>
+        </h3>
+      </div>
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
           <Loader className="animate-spin" size={24} style={{ color: 'var(--primary)' }} />
         </div>
-      ) : orders.length > 0 ? (
+      ) : filteredOrders.length > 0 ? (
         <div className="table-container">
           <table className="premium-table">
             <thead>
@@ -289,9 +542,9 @@ export const Dashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => {
+              {filteredOrders.map((order) => {
                 const hasUnread = (order.unreadBuyerMessages ?? 0) > 0;
-                const paidStatus = isPaidOrderStatus(order.status);
+                const badge = getStatusBadgeStyle(order.status);
                 return (
                   <tr key={order.id}>
                     <td style={{ fontSize: '0.85rem', fontFamily: 'monospace', fontWeight: 700, color: 'var(--primary)' }}>
@@ -339,11 +592,10 @@ export const Dashboard: React.FC = () => {
                           borderRadius: '4px',
                           fontSize: '0.75rem',
                           fontWeight: 700,
-                          background: paidStatus ? 'var(--success-glow)' : 'rgba(255, 183, 0, 0.1)',
-                          color: paidStatus ? 'var(--success)' : 'var(--warning)',
-                          border: `1px solid ${
-                            paidStatus ? 'rgba(0, 255, 136, 0.2)' : 'rgba(255, 183, 0, 0.2)'
-                          }`
+                          background: badge.bg,
+                          color: badge.color,
+                          border: badge.border,
+                          whiteSpace: 'nowrap'
                         }}
                       >
                         {order.status}
@@ -373,6 +625,32 @@ export const Dashboard: React.FC = () => {
               })}
             </tbody>
           </table>
+        </div>
+      ) : orders.length > 0 ? (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '3.5rem 1.5rem',
+            color: 'var(--text-secondary)',
+            border: '1px dashed var(--border-color)',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(255, 255, 255, 0.015)'
+          }}
+        >
+          <div style={{ fontSize: '1.05rem', color: '#fff', fontWeight: 600, marginBottom: '0.4rem' }}>
+            Nenhum pedido encontrado para o status selecionado.
+          </div>
+          <p style={{ fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+            Não há pedidos registrados com o status <strong>{statusFilter}</strong> no momento.
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setStatusFilter(null)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem' }}
+          >
+            <X size={14} /> Ver Todos os Pedidos
+          </button>
         </div>
       ) : (
         <div
@@ -518,6 +796,7 @@ export const Dashboard: React.FC = () => {
                     <option value="PENDENTE">PENDENTE (Aguardando PIX)</option>
                     <option value="PAGO">PAGO (Em Produção 3D)</option>
                     <option value="AGUARDANDO RETIRADA">AGUARDANDO RETIRADA (Pronto para Retirada)</option>
+                    <option value="AGUARDANDO ENVIO">AGUARDANDO ENVIO (Pronto para Postagem nos Correios)</option>
                     <option value="ENVIADO">ENVIADO (Postado nos Correios)</option>
                     <option value="ENTREGUE">ENTREGUE (Pedido Entregue ao Cliente)</option>
                     <option value="CANCELADO">CANCELADO</option>

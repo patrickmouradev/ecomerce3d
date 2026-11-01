@@ -276,6 +276,20 @@ public class OrderEmailService {
                 statusTextColor = "#00f0ff";
                 buttonText = "Combinar Retirada no Chat do Site";
             }
+            case "AGUARDANDO ENVIO", "AGUARDANDO_ENVIO" -> {
+                subject = String.format("3DPrintPNG - Suas peças estão prontas! Pedido #%s Aguardando Envio 📦", orderNum);
+                title = "Suas Peças Ficaram Prontas! 🖨️";
+                messageHtml = String.format(
+                        "<p style=\"margin:0 0 12px 0;\">Olá, <strong style=\"color:#ffffff;\">%s</strong>! A impressão das suas peças foi concluída com sucesso e o seu <strong style=\"color:#00f0ff;\">Pedido #%s</strong> está <strong style=\"color:#fb923c;\">AGUARDANDO ENVIO</strong>!</p>" +
+                        "<p style=\"margin:0;\">Estamos embalando tudo com muito cuidado e, assim que for postado nos Correios com o código de rastreio, avisaremos você imediatamente.</p>",
+                        escapeHtml(customerName), orderNum
+                );
+                statusLabel = "AGUARDANDO ENVIO";
+                statusBgColor = "rgba(251, 146, 60, 0.15)";
+                statusBorderColor = "#fb923c";
+                statusTextColor = "#fb923c";
+                buttonText = "Acompanhar Pedido no Site";
+            }
             case "ENVIADO" -> {
                 subject = String.format("3DPrintPNG - Seu Pedido #%s foi Enviado! 📦", orderNum);
                 title = "Seu Pedido está a Caminho!";
