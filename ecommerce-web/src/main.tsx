@@ -8,8 +8,8 @@ window.addEventListener('vite:preloadError', () => {
   window.location.reload();
 });
 
-// Registro do Service Worker PWA (Produção HTTPS e Localhost)
-if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+// Registro do Service Worker PWA (HTTPS, Localhost, 127.0.0.1 ou Contexto Seguro)
+if ('serviceWorker' in navigator && (window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {

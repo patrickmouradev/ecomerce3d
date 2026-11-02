@@ -14,7 +14,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 export const InstallPwaButton: React.FC = () => {
   const { user } = useAuth();
-  const { isSubscribed, subscribeToPush, loading: pushLoading } = useWebPush();
+  const { isSupported, isSubscribed, subscribeToPush, loading: pushLoading } = useWebPush();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
   const [isIos, setIsIos] = useState<boolean>(false);
@@ -73,21 +73,23 @@ export const InstallPwaButton: React.FC = () => {
     }
   };
 
-  // Se já estiver rodando como PWA instalado (Standalone), só exibe o botão de ativar push se o usuário estiver logado e ainda não for inscrito
+  // Se o usuário estiver logado e ainda não for inscrito no Web Push, exibe o botão para ativar notificações
+  if (user && !isSubscribed && isSupported) {
+    return (
+      <button
+        onClick={() => subscribeToPush()}
+        disabled={pushLoading}
+        className="pwa-install-pill push-enable-pill"
+        title="Ativar Notificações Push"
+      >
+        <Bell size={16} className="text-cyan-400 animate-pulse" />
+        <span>{pushLoading ? 'Ativando...' : 'Ativar Notificações'}</span>
+      </button>
+    );
+  }
+
+  // Se já estiver rodando como PWA instalado (Standalone), nada mais a exibir
   if (isStandalone) {
-    if (user && !isSubscribed) {
-      return (
-        <button
-          onClick={() => subscribeToPush()}
-          disabled={pushLoading}
-          className="pwa-install-pill push-enable-pill"
-          title="Ativar Notificações no Celular"
-        >
-          <Bell size={16} className="text-cyan-400 animate-pulse" />
-          <span>{pushLoading ? 'Ativando...' : 'Ativar Notificações'}</span>
-        </button>
-      );
-    }
     return null;
   }
 
