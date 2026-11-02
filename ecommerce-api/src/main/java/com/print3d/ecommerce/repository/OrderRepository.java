@@ -26,4 +26,16 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     @Query(value = "SELECT nextval('seq_order_number')", nativeQuery = true)
     Long getNextOrderNumber();
+
+    @Query("SELECT o FROM Order o JOIN FETCH o.user u WHERE o.status = 'PENDENTE' " +
+           "AND (" +
+           "  (o.pendingPushCount < 3 AND o.createdAt <= :limite24h AND (o.lastPendingPushAt IS NULL OR o.lastPendingPushAt <= :limite24hUltimoPush)) " +
+           "  OR " +
+           "  (o.pendingPushCount >= 3 AND o.lastPendingPushAt <= :limite15dias)" +
+           ")")
+    List<Order> findPendingOrdersEligibleForPush(
+            @Param("limite24h") java.time.LocalDateTime limite24h,
+            @Param("limite24hUltimoPush") java.time.LocalDateTime limite24hUltimoPush,
+            @Param("limite15dias") java.time.LocalDateTime limite15dias
+    );
 }

@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/analytics/track").permitAll()
                 .requestMatchers("/api/checkout/config", "/api/checkout/shipping").permitAll()
                 .requestMatchers("/api/webhooks/mercadopago/**").permitAll()
+                .requestMatchers("/api/push/public-key").permitAll()
                 .requestMatchers("/error").permitAll()
                 
                 // Swagger UI e Docs
