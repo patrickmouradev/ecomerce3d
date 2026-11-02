@@ -4,7 +4,7 @@
 
 -- 1. Inscrições de Dispositivos Móveis e Desktop (Web Push)
 CREATE TABLE IF NOT EXISTS push_subscriptions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES tb_user(id) ON DELETE CASCADE,
     endpoint TEXT NOT NULL UNIQUE,
     p256dh TEXT NOT NULL,
@@ -21,7 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_push_sub_active ON push_subscriptions(active);
 
 -- 2. Histórico de Campanhas / Disparos Realizados (Painel Admin)
 CREATE TABLE IF NOT EXISTS push_campaigns (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     title VARCHAR(120) NOT NULL,
     body VARCHAR(255) NOT NULL,
     target_url VARCHAR(255) DEFAULT '/',
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS push_campaigns (
 
 -- 3. Recibos Detalhados de Entrega (Auditoria)
 CREATE TABLE IF NOT EXISTS push_delivery_receipts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     campaign_id UUID NOT NULL REFERENCES push_campaigns(id) ON DELETE CASCADE,
     subscription_id UUID NOT NULL REFERENCES push_subscriptions(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES tb_user(id) ON DELETE CASCADE,

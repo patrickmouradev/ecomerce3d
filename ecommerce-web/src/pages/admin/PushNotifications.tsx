@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
+import { useWebPush } from '../../hooks/useWebPush';
 import {
   Bell,
   Send,
@@ -12,7 +13,8 @@ import {
   RefreshCw,
   ArrowLeft,
   Eye,
-  Check
+  Check,
+  Laptop
 } from 'lucide-react';
 
 interface PushCampaign {
@@ -47,15 +49,42 @@ export const PushNotifications: React.FC = () => {
     totalCampaignsSent: 0
   });
 
+  const { isSupported, isSubscribed, subscribeToPush, loading: pushSubLoading, error: pushSubError } = useWebPush();
+
   // Formulário de Disparo
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [targetUrl, setTargetUrl] = useState('/catalog');
-  const [targetRole, setTargetRole] = useState<'USUARIO' | 'FINANCEIRO' | 'ADMINISTRADOR' | 'ESPECIFICO'>('USUARIO');
+  const [targetRole, setTargetRole] = useState<'TODOS' | 'USUARIO' | 'FINANCEIRO' | 'ADMINISTRADOR' | 'ESPECIFICO'>('TODOS');
   const [targetEmail, setTargetEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  const handleQuickTest = async () => {
+    if (!isSubscribed) {
+      const ok = await subscribeToPush();
+      if (!ok) return;
+    }
+    setSending(true);
+    setSendSuccess(null);
+    setSendError(null);
+    try {
+      const payload = {
+        title: '🔔 Teste de Notificação 3DPrintPNG',
+        body: 'Parabéns! Suas notificações Web Push estão funcionando perfeitamente.',
+        targetUrl: '/admin/push',
+        targetRole: 'TODOS'
+      };
+      const res = await api.post('/api/admin/push/broadcast', payload);
+      setSendSuccess(`Notificação de teste disparada! ${res.data?.totalSuccess || 0} dispositivos entregues.`);
+      fetchStats();
+    } catch (err: any) {
+      setSendError(err?.response?.data?.message || 'Falha ao disparar notificação de teste.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   // Histórico
   const [campaigns, setCampaigns] = useState<PushCampaign[]>([]);
@@ -259,6 +288,72 @@ export const PushNotifications: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '2rem' }}>
           {/* Formulário */}
           <div className="glass-panel" style={{ padding: '1.75rem' }}>
+            {/* Card de Teste Rápido no Navegador do Admin */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-md)',
+              padding: '1rem',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Laptop size={18} className="text-cyan-400" />
+                  <span style={{ fontSize: '0.88rem', fontWeight: 700 }}>Diagnóstico deste Computador / Aparelho:</span>
+                </div>
+                {isSubscribed ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: 'var(--success)', background: 'rgba(0, 255, 136, 0.1)', padding: '0.2rem 0.5rem', borderRadius: '999px', border: '1px solid rgba(0, 255, 136, 0.3)' }}>
+                    <Check size={12} /> Inscrito para Notificações
+                  </span>
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: 'var(--warning)', background: 'rgba(255, 183, 0, 0.1)', padding: '0.2rem 0.5rem', borderRadius: '999px', border: '1px solid rgba(255, 183, 0, 0.3)' }}>
+                    <AlertTriangle size={12} /> Não Inscrito neste Aparelho
+                  </span>
+                )}
+              </div>
+
+              {!isSupported ? (
+                <div style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>
+                  Atenção: Seu navegador não suporta Web Push ou a página precisa estar em HTTPS/localhost.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {!isSubscribed ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const ok = await subscribeToPush();
+                        if (ok) fetchStats();
+                      }}
+                      disabled={pushSubLoading}
+                      className="btn btn-primary"
+                      style={{ fontSize: '0.82rem', padding: '0.45rem 0.85rem' }}
+                    >
+                      <Bell size={14} />
+                      {pushSubLoading ? 'Ativando...' : 'Ativar Notificações Neste Aparelho'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleQuickTest}
+                      disabled={sending}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.82rem', padding: '0.45rem 0.85rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+                    >
+                      <Send size={14} />
+                      {sending ? 'Disparando...' : 'Enviar Notificação de Teste Imediata'}
+                    </button>
+                  )}
+                  {pushSubError && (
+                    <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>{pushSubError}</span>
+                  )}
+                </div>
+              )}
+            </div>
+
             <h3 style={{ fontSize: '1.2rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Send size={18} className="text-cyan-400" />
               Compor Notificação Push
@@ -287,6 +382,23 @@ export const PushNotifications: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem' }}>
                   <button
                     type="button"
+                    onClick={() => setTargetRole('TODOS')}
+                    style={{
+                      padding: '0.65rem 0.5rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: targetRole === 'TODOS' ? 'rgba(0, 240, 255, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                      border: `1px solid ${targetRole === 'TODOS' ? 'var(--primary)' : 'var(--border-color)'}`,
+                      color: targetRole === 'TODOS' ? 'var(--primary)' : 'var(--text-secondary)',
+                      fontSize: '0.82rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Todos os Dispositivos
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setTargetRole('USUARIO')}
                     style={{
                       padding: '0.65rem 0.5rem',
@@ -299,7 +411,7 @@ export const PushNotifications: React.FC = () => {
                       cursor: 'pointer'
                     }}
                   >
-                    Todos os Clientes
+                    Clientes Cadastrados
                   </button>
 
                   <button

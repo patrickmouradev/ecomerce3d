@@ -81,13 +81,21 @@ export function useWebPush() {
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
 
-      if (!subscription) {
-        const convertedKey = urlBase64ToUint8Array(publicKey);
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: convertedKey as unknown as BufferSource
-        });
+      const convertedKey = urlBase64ToUint8Array(publicKey);
+
+      // Se já houver inscrição anterior, desinscreve para garantir sincronia com a chave VAPID atual
+      if (subscription) {
+        try {
+          await subscription.unsubscribe();
+        } catch (e) {
+          console.warn('[WebPush] Aviso ao desinscrever subscription anterior:', e);
+        }
       }
+
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedKey as unknown as BufferSource
+      });
 
       // 4. Envia os dados de inscrição para persistência no PostgreSQL
       const subJson = subscription.toJSON();
