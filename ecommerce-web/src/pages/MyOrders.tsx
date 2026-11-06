@@ -20,6 +20,7 @@ import {
 
 interface OrderItem {
   id: string;
+  productId?: string;
   productName: string;
   quantity: number;
   price: number;
@@ -296,8 +297,9 @@ export const MyOrders: React.FC = () => {
                 {/* Lista de Itens do Pedido */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1rem' }}>
                   {order.items?.map((item, idx) => {
+                    const targetProductId = item.productId || item.id;
                     const hasReviewed = myReviews.some(
-                      (r) => r.orderId === order.id && (r.productId === item.id || r.productName === item.productName)
+                      (r) => r.orderId === order.id && (r.productId === targetProductId || r.productName === item.productName)
                     );
                     const isDelivered = order.status === 'ENTREGUE';
 
@@ -343,7 +345,7 @@ export const MyOrders: React.FC = () => {
                                 onClick={() =>
                                   setReviewingTarget({
                                     orderId: order.id,
-                                    productId: item.id,
+                                    productId: item.productId || item.id,
                                     productName: item.productName
                                   })
                                 }
