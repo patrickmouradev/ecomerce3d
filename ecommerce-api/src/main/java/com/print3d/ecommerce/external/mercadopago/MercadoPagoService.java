@@ -80,7 +80,13 @@ public class MercadoPagoService {
             body.put("processing_mode", "automatic");
             body.put("total_amount", amountStr);
             body.put("external_reference", request.getExternalReference());
-            body.put("description", request.getDescription() != null ? request.getDescription() : "Compra 3DPrintPNG");
+            String description = (request.getDescription() != null && !request.getDescription().isBlank())
+                    ? request.getDescription().trim()
+                    : "Compra 3DPrintPNG";
+            if (description.length() > 150) {
+                description = description.substring(0, 147) + "...";
+            }
+            body.put("description", description);
 
             // Dados do Payer
             Map<String, Object> payer = new HashMap<>();

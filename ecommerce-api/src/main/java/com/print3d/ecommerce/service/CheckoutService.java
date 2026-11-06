@@ -292,7 +292,7 @@ public class CheckoutService {
 
         MercadoPagoPaymentRequestDto mpRequest = MercadoPagoPaymentRequestDto.builder()
                 .externalReference(order.getId().toString())
-                .description("3DPrintPNG - " + String.join(", ", productNames))
+                .description(buildPaymentDescription(productNames))
                 .transactionAmount(totalAmount)
                 .paymentMethodId(request.getPaymentMethodId() != null ? request.getPaymentMethodId() : "pix")
                 .token(request.getToken())
@@ -617,6 +617,16 @@ public class CheckoutService {
         }
 
         return toOrderMessageDto(saved);
+    }
+
+    private String buildPaymentDescription(List<String> productNames) {
+        String base = (productNames != null && !productNames.isEmpty())
+                ? "3DPrintPNG - " + String.join(", ", productNames)
+                : "3DPrintPNG - Pedido";
+        if (base.length() > 150) {
+            return base.substring(0, 147) + "...";
+        }
+        return base;
     }
 
     private OrderMessageDto toOrderMessageDto(OrderMessage msg) {

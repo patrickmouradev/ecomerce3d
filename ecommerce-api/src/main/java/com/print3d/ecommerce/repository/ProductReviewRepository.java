@@ -30,6 +30,6 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, UU
     @Query("SELECT r FROM ProductReview r WHERE r.user.id = :userId")
     List<ProductReview> findByUserId(@Param("userId") UUID userId);
 
-    @Query("SELECT COUNT(o) > 0 FROM Order o JOIN o.items i WHERE o.id = :orderId AND o.user.id = :userId AND o.status = 'ENTREGUE' AND i.product.id = :productId")
+    @Query("SELECT COUNT(o) > 0 FROM Order o JOIN o.items i WHERE o.id = :orderId AND o.user.id = :userId AND o.status = 'ENTREGUE' AND (i.product.id = :productId OR i.id = :productId)")
     boolean isOrderDeliveredAndContainsProduct(@Param("orderId") UUID orderId, @Param("userId") UUID userId, @Param("productId") UUID productId);
 }

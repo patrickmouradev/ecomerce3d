@@ -132,17 +132,37 @@ public class ProductReviewService {
             throw new IllegalStateException("Apenas compradores com pedidos com status ENTREGUE podem avaliar este produto.");
         }
 
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
+
+        // Resolve o produto real mesmo se o front-end tiver enviado o ID do item do pedido
+        Product product = null;
+        if (order.getItems() != null) {
+            for (com.print3d.ecommerce.model.OrderItem item : order.getItems()) {
+                if (item.getProduct() != null && item.getProduct().getId().equals(productId)) {
+                    product = item.getProduct();
+                    break;
+                } else if (item.getId() != null && item.getId().equals(productId)) {
+                    product = item.getProduct();
+                    break;
+                }
+            }
+        }
+
+        if (product == null) {
+            product = productRepository.findById(productId)
+                    .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+        }
+
+        UUID resolvedProductId = product.getId();
+
         // Verifica se já avaliou neste pedido
-        if (reviewRepository.findByOrderIdAndProductId(orderId, productId).isPresent()) {
+        if (reviewRepository.findByOrderIdAndProductId(orderId, resolvedProductId).isPresent()) {
             throw new IllegalStateException("Você já enviou uma avaliação para este produto neste pedido.");
         }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Pedido não encontrado"));
 
         List<String> photoUrls = new ArrayList<>();
         if (photos != null && !photos.isEmpty()) {
@@ -172,7 +192,7 @@ public class ProductReviewService {
                 .build();
 
         ProductReview saved = reviewRepository.save(review);
-        log.info("Nova avaliação registrada para o produto {} no pedido {}", productId, orderId);
+        log.info("Nova avaliação registrada para o produto {} no pedido {}", resolvedProductId, orderId);
         return toDto(saved);
     }
 
