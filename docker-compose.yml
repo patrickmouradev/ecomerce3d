@@ -45,7 +45,7 @@ services:
       SERVER_PORT: 8088
       UPLOAD_DIR: /app/uploads
     volumes:
-      - ./uploads:/app/uploads
+      - ${UPLOAD_HOST_DIR:-C:/ARQUIVOS_SITES/LOJA3D}:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
