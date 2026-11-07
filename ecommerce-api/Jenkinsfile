@@ -34,7 +34,7 @@ pipeline {
         DOCKER_IMAGE     = 'patrickmoura/ecommerce-api'
         CONTAINER_NAME   = '3dprintpng-api'
         APP_PORT         = '8088'
-        UPLOADS_HOST_DIR = '/app/uploads'
+        UPLOADS_HOST_DIR = 'C:/ARQUIVOS_SITES/LOJA3D'
     }
 
     stages {
