@@ -1070,17 +1070,8 @@ export const Products: React.FC = () => {
                 <th onClick={() => handleSort('weightG')}>
                   Filamento e Peso <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
-                <th onClick={() => handleSort('salePriceParticular')}>
-                  Venda Particular <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
-                </th>
-                <th onClick={() => handleSort('salePriceShoppe')}>
-                  Venda Shoppe <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
-                </th>
                 <th onClick={() => handleSort('salePriceMercadoLivrePix')}>
                   Venda ML Pix <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
-                </th>
-                <th onClick={() => handleSort('salePriceMercadoLivreCard')}>
-                  Venda ML Cartão <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
                 </th>
                 <th onClick={() => handleSort('hasAttachment')} style={{ textAlign: 'center', cursor: 'pointer' }}>
                   Anexo <ArrowUpDown size={12} style={{ marginLeft: '0.25rem' }} />
@@ -1157,16 +1148,7 @@ export const Products: React.FC = () => {
                     )}
                   </td>
                   <td style={{ color: 'var(--success)', fontWeight: 700 }}>
-                    {prod.salePriceParticular?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
-                  </td>
-                  <td style={{ color: 'var(--success)', fontWeight: 700 }}>
-                    {prod.salePriceShoppe?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'N/A'}
-                  </td>
-                  <td style={{ color: 'var(--success)', fontWeight: 700 }}>
                     {(prod.salePriceMercadoLivrePix ?? prod.salePriceMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-                    {(prod.salePriceMercadoLivreCard ?? prod.salePriceMercadoLivre ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <span
