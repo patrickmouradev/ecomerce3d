@@ -1118,7 +1118,7 @@ export const Checkout: React.FC = () => {
                             </div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                               {isPickup
-                                ? 'Retirada direta sem custo de envio'
+                                ? 'Retirada em São Bernardo do Campo'
                                 : `Prazo estimado: até ${opt.prazoDias} dias úteis`}
                             </div>
                           </div>
@@ -1166,7 +1166,7 @@ export const Checkout: React.FC = () => {
                           Retirada com o Vendedor
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                          Retirada direta sem custo de envio
+                          Retirada em São Bernardo do Campo
                         </div>
                       </div>
                       <strong style={{ color: shippingServiceId === 0 ? 'var(--primary)' : 'var(--success)' }}>

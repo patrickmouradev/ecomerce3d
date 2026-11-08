@@ -308,7 +308,7 @@ a {
   border: 1px solid var(--border-glow);
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 30px var(--primary-glow);
   background-color: var(--bg-surface-2);
-  overflow-y: auto;
+  overflow: hidden;
   animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;

@@ -559,14 +559,23 @@ const ProductDetailModal: React.FC<{
           </button>
         </div>
 
-        {/* Corpo do Modal em 2 Colunas Responsivo */}
+        {/* Container Rolável Unificado: Informações + Avaliações */}
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          {/* Corpo do Modal em 2 Colunas Responsivo */}
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
             gap: '1.5rem',
-            padding: 'clamp(1rem, 3vw, 1.75rem)',
-            overflowY: 'auto'
+            padding: 'clamp(1rem, 3vw, 1.75rem)'
           }}
         >
           {/* Coluna 1: Galeria de Imagens e Zoom */}
@@ -891,147 +900,6 @@ const ProductDetailModal: React.FC<{
               )
             )}
 
-            {/* Seletor de Quantidade e Subtotal */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '1rem',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-surface-3)',
-                border: '1px solid var(--border-color)'
-              }}
-            >
-              <div>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', fontWeight: 600, textTransform: 'uppercase' }}>
-                  Selecione a Quantidade
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    disabled={quantity <= 1}
-                    style={{
-                      width: '34px',
-                      height: '34px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'var(--bg-surface-1)',
-                      border: '1px solid var(--border-color)',
-                      color: quantity <= 1 ? 'var(--text-muted)' : '#fff',
-                      cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '1rem',
-                      fontWeight: 700
-                    }}
-                  >
-                    <Minus size={14} />
-                  </button>
-
-                  <input
-                    type="number"
-                    min={1}
-                    value={quantity}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      setQuantity(isNaN(val) || val < 1 ? 1 : val);
-                    }}
-                    style={{
-                      width: '54px',
-                      height: '34px',
-                      textAlign: 'center',
-                      background: 'var(--bg-surface-1)',
-                      border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      fontWeight: 700,
-                      fontSize: '1rem',
-                      borderRadius: 'var(--radius-sm)'
-                    }}
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((q) => q + 1)}
-                    style={{
-                      width: '34px',
-                      height: '34px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'var(--bg-surface-1)',
-                      border: '1px solid var(--border-color)',
-                      color: '#fff',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '1rem',
-                      fontWeight: 700
-                    }}
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Subtotal da Quantidade */}
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-                  Subtotal ({quantity}x)
-                </span>
-                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--success)' }}>
-                  {totalPricePix.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </div>
-                {unitPriceCard !== unitPricePix && (
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.1rem' }}>
-                    ou {totalPriceCard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} no cartão
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Botões de Ação */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleAddToCart}
-                style={{
-                  width: '100%',
-                  padding: '0.9rem 1.5rem',
-                  fontSize: '1.05rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.6rem',
-                  background: addedAnimation ? 'var(--success)' : undefined,
-                  borderColor: addedAnimation ? 'var(--success)' : undefined
-                }}
-              >
-                {addedAnimation ? (
-                  <>
-                    <Check size={20} />
-                    Adicionado ao Carrinho!
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart size={20} />
-                    Adicionar ao Carrinho • {totalPricePix.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={onClose}
-                style={{ width: '100%', padding: '0.75rem', fontSize: '0.95rem' }}
-              >
-                Fechar e Continuar Comprando
-              </button>
-            </div>
-
             {/* Selos de Confiança (Gatilhos de Vendas) */}
             <div
               style={{
@@ -1154,6 +1022,147 @@ const ProductDetailModal: React.FC<{
             </div>
           </div>
         )}
+
+          {/* Respiro inferior na rolagem para não colar na barra fixa */}
+          <div style={{ height: '1.5rem', flexShrink: 0 }} />
+        </div>
+
+        {/* Rodapé Fixo de Conversão (Sticky Bar para Todos os Dispositivos) */}
+        <div
+          style={{
+            flexShrink: 0,
+            borderTop: '1px solid var(--border-color)',
+            background: 'var(--bg-surface-1)',
+            padding: '0.85rem 1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.85rem',
+            flexWrap: 'wrap',
+            zIndex: 10,
+            boxShadow: '0 -10px 25px rgba(0, 0, 0, 0.5)'
+          }}
+        >
+          {/* Controles de Quantidade e Subtotal */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <button
+                type="button"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                disabled={quantity <= 1}
+                aria-label="Diminuir quantidade"
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-surface-3)',
+                  border: '1px solid var(--border-color)',
+                  color: quantity <= 1 ? 'var(--text-muted)' : '#fff',
+                  cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1rem',
+                  fontWeight: 700
+                }}
+              >
+                <Minus size={15} />
+              </button>
+
+              <input
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  setQuantity(isNaN(val) || val < 1 ? 1 : val);
+                }}
+                style={{
+                  width: '46px',
+                  height: '38px',
+                  textAlign: 'center',
+                  background: 'var(--bg-surface-3)',
+                  border: '1px solid var(--border-color)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  borderRadius: 'var(--radius-sm)'
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setQuantity((q) => q + 1)}
+                aria-label="Aumentar quantidade"
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-surface-3)',
+                  border: '1px solid var(--border-color)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1rem',
+                  fontWeight: 700
+                }}
+              >
+                <Plus size={15} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                Total ({quantity}x)
+              </span>
+              <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--success)', lineHeight: 1.1 }}>
+                {totalPricePix.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </span>
+              {unitPriceCard !== unitPricePix && (
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  ou {totalPriceCard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} no cartão
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Botão Adicionar ao Carrinho */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, justifyContent: 'flex-end', minWidth: '180px' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleAddToCart}
+              style={{
+                width: '100%',
+                maxWidth: '380px',
+                padding: '0.85rem 1.4rem',
+                fontSize: '1rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.6rem',
+                background: addedAnimation ? 'var(--success)' : undefined,
+                borderColor: addedAnimation ? 'var(--success)' : undefined,
+                boxShadow: addedAnimation ? '0 0 15px var(--success-glow)' : '0 0 15px var(--primary-glow)'
+              }}
+            >
+              {addedAnimation ? (
+                <>
+                  <Check size={20} />
+                  Adicionado ao Carrinho!
+                </>
+              ) : (
+                <>
+                  <ShoppingCart size={20} />
+                  Adicionar ao Carrinho
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
