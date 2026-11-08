@@ -16,8 +16,13 @@ import {
   Globe,
   Activity,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  UserX,
+  EyeOff,
+  X,
+  Check
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface SiteVisitLog {
   id: string;
@@ -63,6 +68,88 @@ export const Visitors: React.FC = () => {
   const [filterType, setFilterType] = useState<'ALL' | 'IDENTIFIED' | 'PRODUCTS' | 'CART'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [clearing, setClearing] = useState(false);
+
+  const { user: currentUser } = useAuth();
+
+  // Lista de e-mails ou nomes de usuários a excluir da listagem
+  const [excludedUsers, setExcludedUsers] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('3dprintpng_excluded_visitors');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Habilitar ou desabilitar o filtro de exclusão
+  const [excludeFilterActive, setExcludeFilterActive] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('3dprintpng_filter_exclude_enabled');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [showExcludePanel, setShowExcludePanel] = useState(false);
+  const [newExcludeInput, setNewExcludeInput] = useState('');
+
+  // Persistência das preferências de exclusão no localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('3dprintpng_excluded_visitors', JSON.stringify(excludedUsers));
+    } catch (e) {}
+  }, [excludedUsers]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('3dprintpng_filter_exclude_enabled', JSON.stringify(excludeFilterActive));
+    } catch (e) {}
+  }, [excludeFilterActive]);
+
+  const handleToggleExcludeUser = (identifier: string) => {
+    if (!identifier) return;
+    const clean = identifier.trim().toLowerCase();
+    setExcludedUsers((prev) => {
+      const exists = prev.some((item) => item.toLowerCase() === clean);
+      if (exists) {
+        return prev.filter((item) => item.toLowerCase() !== clean);
+      } else {
+        return [...prev, identifier.trim()];
+      }
+    });
+  };
+
+  const handleAddCustomExclude = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newExcludeInput.trim()) return;
+    handleToggleExcludeUser(newExcludeInput.trim());
+    setNewExcludeInput('');
+  };
+
+  const isUserExcluded = (userName?: string, userEmail?: string) => {
+    if (!excludeFilterActive || excludedUsers.length === 0) return false;
+    const nameLower = (userName || '').toLowerCase();
+    const emailLower = (userEmail || '').toLowerCase();
+    return excludedUsers.some((ex) => {
+      const exLower = ex.toLowerCase();
+      return (emailLower && emailLower === exLower) || (nameLower && nameLower === exLower);
+    });
+  };
+
+  // Identifica todos os usuários logados presentes nos logs recentes
+  const identifiedUsersInLogs = React.useMemo(() => {
+    const map = new Map<string, { name?: string; email?: string }>();
+    (dashboard?.recentLogs || []).forEach((log) => {
+      if (log.userEmail || log.userName) {
+        const key = (log.userEmail || log.userName || '').toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, { name: log.userName, email: log.userEmail });
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [dashboard?.recentLogs]);
 
   useEffect(() => {
     fetchVisits(false);
@@ -147,6 +234,9 @@ export const Visitors: React.FC = () => {
   };
 
   const filteredLogs = (dashboard?.recentLogs || []).filter((log) => {
+    if (excludeFilterActive && isUserExcluded(log.userName, log.userEmail)) {
+      return false;
+    }
     if (filterType === 'IDENTIFIED' && !log.userId && !log.userName) return false;
     if (filterType === 'PRODUCTS' && log.eventType !== 'PRODUCT_VIEW') return false;
     if (filterType === 'CART' && log.eventType !== 'ADD_TO_CART') return false;
@@ -414,7 +504,41 @@ export const Visitors: React.FC = () => {
           flexWrap: 'wrap'
         }}
       >
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setShowExcludePanel((prev) => !prev)}
+            className="btn btn-secondary"
+            style={{
+              padding: '0.45rem 0.9rem',
+              borderRadius: '999px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              background: showExcludePanel || (excludeFilterActive && excludedUsers.length > 0)
+                ? 'rgba(255, 170, 0, 0.15)'
+                : undefined,
+              borderColor: excludeFilterActive && excludedUsers.length > 0 ? '#ffaa00' : undefined,
+              color: excludeFilterActive && excludedUsers.length > 0 ? '#ffaa00' : 'var(--text-secondary)'
+            }}
+            title="Configurar exclusão de usuários da listagem"
+          >
+            <UserX size={15} />
+            <span>Ocultar Usuários ({excludedUsers.length})</span>
+            {excludeFilterActive && excludedUsers.length > 0 && (
+              <span
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: '#ffaa00',
+                  boxShadow: '0 0 6px #ffaa00'
+                }}
+              />
+            )}
+          </button>
           {[
             { id: 'ALL', label: 'Todos os Acessos' },
             { id: 'IDENTIFIED', label: 'Apenas Clientes Logados' },
@@ -467,6 +591,207 @@ export const Visitors: React.FC = () => {
         </div>
       </div>
 
+      {/* Painel Expansível de Exclusão de Usuários */}
+      {showExcludePanel && (
+        <div
+          className="glass-panel"
+          style={{
+            padding: '1.25rem 1.5rem',
+            borderRadius: 'var(--radius-md)',
+            marginBottom: '1.5rem',
+            border: '1px solid rgba(255, 170, 0, 0.35)',
+            background: 'rgba(255, 170, 0, 0.03)'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <UserX size={18} style={{ color: '#ffaa00' }} />
+              <h4 style={{ margin: 0, fontSize: '1rem', color: '#fff', fontWeight: 700 }}>
+                Filtrar e Ocultar Usuários Específicos
+              </h4>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  color: excludeFilterActive ? 'var(--success)' : 'var(--text-muted)'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={excludeFilterActive}
+                  onChange={(e) => setExcludeFilterActive(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--success)', cursor: 'pointer' }}
+                />
+                Filtro de Exclusão Ativo
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setShowExcludePanel(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0 0 1rem' }}>
+            Marque os usuários abaixo ou adicione e-mails para que as atividades deles não poluam a listagem de clientes reais.
+          </p>
+
+          {/* Atalho Meu Usuário */}
+          {currentUser?.email && (
+            <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Meu usuário:</span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{
+                  padding: '0.3rem 0.75rem',
+                  fontSize: '0.78rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  borderRadius: 'var(--radius-sm)',
+                  borderColor: excludedUsers.some((u) => u.toLowerCase() === currentUser.email.toLowerCase())
+                    ? '#ffaa00'
+                    : undefined,
+                  color: excludedUsers.some((u) => u.toLowerCase() === currentUser.email.toLowerCase())
+                    ? '#ffaa00'
+                    : '#fff'
+                }}
+                onClick={() => handleToggleExcludeUser(currentUser.email)}
+              >
+                {excludedUsers.some((u) => u.toLowerCase() === currentUser.email.toLowerCase()) ? (
+                  <>
+                    <Check size={13} style={{ color: '#ffaa00' }} />
+                    Meu Usuário está Ocultado ({currentUser.email})
+                  </>
+                ) : (
+                  <>
+                    <EyeOff size={13} />
+                    Ocultar Meu Usuário ({currentUser.email})
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Usuários identificados detectados recentemente */}
+          {identifiedUsersInLogs.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '0.4rem' }}>
+                Usuários Logados Detectados nos Acessos Recentes:
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {identifiedUsersInLogs.map((u, i) => {
+                  const identifier = u.email || u.name || '';
+                  if (!identifier) return null;
+                  const isExcluded = excludedUsers.some((item) => item.toLowerCase() === identifier.toLowerCase());
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleToggleExcludeUser(identifier)}
+                      className="btn"
+                      style={{
+                        padding: '0.25rem 0.65rem',
+                        fontSize: '0.75rem',
+                        borderRadius: '20px',
+                        background: isExcluded ? 'rgba(255, 170, 0, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid ' + (isExcluded ? '#ffaa00' : 'var(--border-color)'),
+                        color: isExcluded ? '#ffaa00' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem'
+                      }}
+                    >
+                      {isExcluded ? <Check size={12} /> : <EyeOff size={12} />}
+                      <span>{u.name || u.email}</span>
+                      {u.email && u.name && <span style={{ opacity: 0.6, fontSize: '0.7rem' }}>({u.email})</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Adicionar por e-mail manual */}
+          <form onSubmit={handleAddCustomExclude} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', maxWidth: '500px' }}>
+            <input
+              type="text"
+              placeholder="Digitar e-mail ou nome para ocultar..."
+              value={newExcludeInput}
+              onChange={(e) => setNewExcludeInput(e.target.value)}
+              className="form-input"
+              style={{ padding: '0.45rem 0.75rem', fontSize: '0.82rem', flex: 1 }}
+            />
+            <button
+              type="submit"
+              className="btn btn-secondary"
+              style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+            >
+              Adicionar
+            </button>
+          </form>
+
+          {/* Chips dos usuários atualmente ocultados */}
+          {excludedUsers.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Ocultados atualmente:</span>
+              {excludedUsers.map((u, i) => (
+                <span
+                  key={i}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '4px',
+                    fontSize: '0.74rem',
+                    background: 'rgba(255, 170, 0, 0.15)',
+                    color: '#ffaa00',
+                    border: '1px solid rgba(255, 170, 0, 0.3)'
+                  }}
+                >
+                  {u}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleExcludeUser(u)}
+                    style={{ background: 'none', border: 'none', color: '#ffaa00', cursor: 'pointer', padding: 0 }}
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={() => setExcludedUsers([])}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.72rem',
+                  textDecoration: 'underline',
+                  cursor: 'pointer',
+                  marginLeft: '0.5rem'
+                }}
+              >
+                Limpar todos
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tabela de Eventos */}
       <div className="table-container">
         <table className="premium-table">
@@ -517,6 +842,26 @@ export const Visitors: React.FC = () => {
                               CLIENTE LOGADO
                             </span>
                             <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{log.userName}</strong>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleExcludeUser(log.userEmail || log.userName || '')}
+                              title={
+                                isUserExcluded(log.userName, log.userEmail)
+                                  ? 'Restaurar visualização deste usuário'
+                                  : 'Ocultar este usuário da listagem de visitantes'
+                              }
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                color: isUserExcluded(log.userName, log.userEmail) ? '#ffaa00' : 'var(--text-muted)',
+                                display: 'inline-flex',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <EyeOff size={13} />
+                            </button>
                           </div>
                           {log.userEmail && (
                             <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
