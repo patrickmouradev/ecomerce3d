@@ -138,13 +138,31 @@ public class CheckoutService {
         }
 
         String cleanCpf = request.getCpf() != null ? request.getCpf().replaceAll("\\D", "") : "";
+        if (cleanCpf.length() < 11 && user.getCpf() != null && !user.getCpf().isBlank()) {
+            cleanCpf = user.getCpf().replaceAll("\\D", "");
+        }
         if (cleanCpf.length() < 11) {
             throw new IllegalArgumentException("CPF/CNPJ válido é obrigatório para emissão do pagamento");
         }
 
+        boolean isPickup = request.getShippingServiceId() != null && request.getShippingServiceId() == 0;
         AddressDto address = request.getAddress();
-        if (address == null || address.getZipCode() == null || address.getZipCode().replaceAll("\\D", "").length() != 8) {
-            throw new IllegalArgumentException("Endereço de entrega completo com CEP válido é obrigatório");
+        if (!isPickup) {
+            if (address == null || address.getZipCode() == null || address.getZipCode().replaceAll("\\D", "").length() != 8) {
+                throw new IllegalArgumentException("Endereço de entrega completo com CEP válido é obrigatório");
+            }
+        } else {
+            if (address == null || address.getZipCode() == null || address.getZipCode().replaceAll("\\D", "").length() != 8) {
+                address = AddressDto.builder()
+                        .zipCode("09710-000")
+                        .streetName("Retirada com o Vendedor")
+                        .streetNumber("S/N")
+                        .neighborhood("Centro")
+                        .city("São Bernardo do Campo")
+                        .federalUnit("SP")
+                        .phone(request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone() : "")
+                        .build();
+            }
         }
 
         // 1. Atualiza os dados no perfil do cliente para próximas compras
@@ -159,7 +177,9 @@ public class CheckoutService {
         String addressJsonStr;
         try {
             addressJsonStr = objectMapper.writeValueAsString(address);
-            user.setAddressJson(addressJsonStr);
+            if (!isPickup || user.getAddressJson() == null || user.getAddressJson().isBlank()) {
+                user.setAddressJson(addressJsonStr);
+            }
             userRepository.save(user);
         } catch (Exception e) {
             throw new RuntimeException("Erro ao salvar endereço de entrega", e);

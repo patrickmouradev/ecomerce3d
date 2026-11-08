@@ -423,6 +423,10 @@ export const Checkout: React.FC = () => {
       }
     }
     setErrorMessage(null);
+    if (shippingServiceId === 0) {
+      setStep(3);
+      return;
+    }
     setStep(2);
   };
 
@@ -487,15 +491,29 @@ export const Checkout: React.FC = () => {
 
   // Finaliza o Pedido via PIX Automático do Mercado Pago
   const handleFinalizeOrderPixMP = async () => {
+    const cleanCpf = cpf.replace(/\D/g, '');
+    if (cleanCpf.length !== 11 && cleanCpf.length !== 14) {
+      setErrorMessage('Por favor, informe um CPF válido (11 dígitos) ou CNPJ para emissão do pagamento.');
+      return;
+    }
     setProcessingOrder(true);
     setErrorMessage(null);
     try {
       const response = await api.post('/api/checkout/process', {
         items: cartItems.map((i) => ({ productId: i.id, quantity: i.quantity })),
-        customerName: customerName.trim(),
+        customerName: customerName.trim() || user?.name || 'Cliente',
         cpf: cpf.replace(/\D/g, ''),
         phone: phone.trim(),
-        address: {
+        address: shippingServiceId === 0 && address.zipCode.replace(/\D/g, '').length !== 8 ? {
+          zipCode: '09710000',
+          streetName: 'Retirada com o Vendedor',
+          streetNumber: 'S/N',
+          complement: '',
+          neighborhood: 'Centro',
+          city: 'São Bernardo do Campo',
+          federalUnit: 'SP',
+          phone: phone.trim()
+        } : {
           ...address,
           zipCode: address.zipCode.replace(/\D/g, ''),
           federalUnit: address.federalUnit.trim().toUpperCase()
@@ -529,7 +547,16 @@ export const Checkout: React.FC = () => {
         customerName: customerName.trim(),
         cpf: cpf.replace(/\D/g, ''),
         phone: phone.trim(),
-        address: {
+        address: shippingServiceId === 0 && address.zipCode.replace(/\D/g, '').length !== 8 ? {
+          zipCode: '09710000',
+          streetName: 'Retirada com o Vendedor',
+          streetNumber: 'S/N',
+          complement: '',
+          neighborhood: 'Centro',
+          city: 'São Bernardo do Campo',
+          federalUnit: 'SP',
+          phone: phone.trim()
+        } : {
           ...address,
           zipCode: address.zipCode.replace(/\D/g, ''),
           federalUnit: address.federalUnit.trim().toUpperCase()
@@ -623,12 +650,14 @@ export const Checkout: React.FC = () => {
     }
 
     if (targetStep === 3) {
-      const cleanCpf = cpf.replace(/\D/g, '');
-      const cleanZip = address.zipCode.replace(/\D/g, '');
-      if (cleanCpf.length < 11 || cleanZip.length !== 8 || !address.streetName || !address.streetNumber) {
-        setErrorMessage('Por favor, informe seu CPF e endereço de entrega na Etapa 2 antes de prosseguir para o Pagamento.');
-        setStep(2);
-        return;
+      if (shippingServiceId !== 0) {
+        const cleanCpf = cpf.replace(/\D/g, '');
+        const cleanZip = address.zipCode.replace(/\D/g, '');
+        if (cleanCpf.length < 11 || cleanZip.length !== 8 || !address.streetName || !address.streetNumber) {
+          setErrorMessage('Por favor, informe seu CPF e endereço de entrega na Etapa 2 antes de prosseguir para o Pagamento.');
+          setStep(2);
+          return;
+        }
       }
       setStep(3);
       return;
@@ -760,7 +789,15 @@ export const Checkout: React.FC = () => {
       {/* Cabeçalho do Checkout e Stepper */}
       <div style={{ marginBottom: '2rem' }}>
         <button
-          onClick={() => (step > 1 && step < 4 ? setStep((s) => (s - 1) as 1 | 2 | 3) : navigate('/'))}
+          onClick={() => {
+            if (step === 3 && shippingServiceId === 0) {
+              setStep(1);
+            } else if (step > 1 && step < 4) {
+              setStep((s) => (s - 1) as 1 | 2 | 3);
+            } else {
+              navigate('/');
+            }
+          }}
           style={{
             background: 'none',
             border: 'none',
@@ -774,7 +811,11 @@ export const Checkout: React.FC = () => {
           }}
         >
           <ArrowLeft size={16} />
-          {step > 1 && step < 4 ? 'Voltar para etapa anterior' : 'Voltar ao Catálogo'}
+          {step === 3 && shippingServiceId === 0
+            ? 'Voltar ao Carrinho e Frete'
+            : step > 1 && step < 4
+            ? 'Voltar para etapa anterior'
+            : 'Voltar ao Catálogo'}
         </button>
 
         <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', fontFamily: 'var(--font-display)', color: '#fff', marginBottom: '1.25rem' }}>
@@ -785,7 +826,7 @@ export const Checkout: React.FC = () => {
         <div className="checkout-stepper">
           {[
             { num: 1, label: '1. Carrinho & Frete' },
-            { num: 2, label: '2. Dados & Entrega' },
+            { num: 2, label: shippingServiceId === 0 ? '2. Entrega (Dispensada)' : '2. Dados & Entrega' },
             { num: 3, label: '3. Pagamento' },
             { num: 4, label: '4. Confirmação' }
           ].map((item) => {
@@ -1220,10 +1261,17 @@ export const Checkout: React.FC = () => {
                 style={{ width: '100%', padding: '0.9rem', marginTop: '1.5rem', fontWeight: 700, display: 'flex', justifyContent: 'center', gap: '0.5rem' }}
               >
                 {user ? (
-                  <>
-                    Continuar para Dados de Entrega
-                    <ArrowRight size={18} />
-                  </>
+                  shippingServiceId === 0 ? (
+                    <>
+                      Continuar para Pagamento
+                      <ArrowRight size={18} />
+                    </>
+                  ) : (
+                    <>
+                      Continuar para Dados de Entrega
+                      <ArrowRight size={18} />
+                    </>
+                  )
                 ) : (
                   <>
                     Fazer Login para Finalizar Compra
@@ -1502,6 +1550,31 @@ export const Checkout: React.FC = () => {
               </button>
             </div>
 
+            {/* Se o CPF não estiver preenchido no perfil (ex: retirada direta), solicita aqui sem precisar ir para Etapa 2 */}
+            {cpf.replace(/\D/g, '').length < 11 && (
+              <div
+                style={{
+                  marginBottom: '1.25rem',
+                  padding: '1rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(0, 240, 255, 0.05)',
+                  border: '1px solid rgba(0, 240, 255, 0.25)'
+                }}
+              >
+                <label style={{ fontSize: '0.85rem', color: '#fff', display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>
+                  CPF / CNPJ do Pagador (obrigatório pelo Mercado Pago para emissão):
+                </label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="000.000.000-00"
+                  value={cpf}
+                  onChange={(e) => setCpf(formatCpf(e.target.value))}
+                  style={{ maxWidth: '280px' }}
+                />
+              </div>
+            )}
+
             {/* ABA: PIX MERCADO PAGO */}
             {activePaymentTab === 'pix' && (
               <div>
@@ -1581,7 +1654,7 @@ export const Checkout: React.FC = () => {
               <div><strong>CPF/CNPJ:</strong> {cpf}</div>
               <div><strong>Telefone:</strong> {phone}</div>
               {shippingServiceId === 0 ? (
-                <div><strong>Entrega:</strong> Retirada com o Vendedor</div>
+                <div><strong>Entrega:</strong> Retirada com o Vendedor (São Bernardo do Campo)</div>
               ) : (
                 <div><strong>Entrega ({shippingServiceName || 'Correios'}):</strong> {address.streetName}, {address.streetNumber} - {address.neighborhood}, {address.city}/{address.federalUnit} (CEP: {address.zipCode})</div>
               )}
