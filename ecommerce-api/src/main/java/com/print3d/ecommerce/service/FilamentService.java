@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Service
 public class FilamentService {
@@ -96,4 +98,32 @@ public class FilamentService {
                 .updatedAt(filament.getUpdatedAt() != null ? filament.getUpdatedAt().format(DatePatterns.DATE_TIME_FORMATTER) : null)
                 .build();
     }
+
+    @Transactional
+    public FilamentDto deductQuantity(UUID id, BigDecimal quantityG) {
+        if (quantityG == null || quantityG.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("A quantidade consumida deve ser maior que zero.");
+        }
+
+        Filament filament = filamentRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Filamento não encontrado"));
+
+        BigDecimal quantityKgToDeduct = quantityG.divide(BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
+
+        BigDecimal currentKg = filament.getQuantityKg() != null ? filament.getQuantityKg() : BigDecimal.ZERO;
+        if (currentKg.compareTo(quantityKgToDeduct) < 0) {
+            BigDecimal currentG = currentKg.multiply(BigDecimal.valueOf(1000));
+            throw new IllegalArgumentException(String.format(
+                    "Estoque insuficiente. Saldo disponível: %.1fg (%.3f kg), solicitado: %.1fg (%.3f kg)",
+                    currentG, currentKg, quantityG, quantityKgToDeduct
+            ));
+        }
+
+        BigDecimal newKg = currentKg.subtract(quantityKgToDeduct);
+        filament.setQuantityKg(newKg);
+
+        Filament saved = filamentRepository.save(filament);
+        return convertToDto(saved);
+    }
+
 }

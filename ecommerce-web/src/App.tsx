@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Filaments from './pages/admin/Filaments';
+import BaixaFilamento from './pages/admin/BaixaFilamento';
 import Params from './pages/admin/Params';
 import BasicProductionCosts from './pages/admin/BasicProductionCosts';
 import Products from './pages/admin/Products';
@@ -57,6 +58,14 @@ function App() {
                 element={
                   <AdminGuard>
                     <Filaments />
+                  </AdminGuard>
+                } 
+              />
+              <Route 
+                path="/admin/baixa-filamento" 
+                element={
+                  <AdminGuard>
+                    <BaixaFilamento />
                   </AdminGuard>
                 } 
               />

@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/admin/filaments")
@@ -63,4 +65,17 @@ public class FilamentController {
         filamentService.logicalDelete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/baixa")
+    @Operation(summary = "Dá baixa manual no estoque do filamento informando a quantidade consumida em gramas")
+    public ResponseEntity<FilamentDto> deductQuantity(
+            @PathVariable UUID id,
+            @RequestBody Map<String, BigDecimal> payload) {
+        BigDecimal quantityG = payload.get("quantityG");
+        if (quantityG == null) {
+            quantityG = payload.get("quantity");
+        }
+        return ResponseEntity.ok(filamentService.deductQuantity(id, quantityG));
+    }
+
 }

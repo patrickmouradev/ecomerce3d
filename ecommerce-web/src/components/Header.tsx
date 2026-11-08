@@ -22,7 +22,8 @@ import {
   Grid,
   Activity,
   Star,
-  Bell
+  Bell,
+  ArrowDownCircle
 } from 'lucide-react';
 import logoImg from '../assets/logo-loja.jpg';
 import { InstallPwaButton } from './InstallPwaButton';
@@ -255,6 +256,25 @@ export const Header: React.FC = () => {
                       <Layers size={15} style={{ color: 'var(--primary)' }} />
                       Filamentos
                     </Link>
+                      <Link
+                        to="/admin/baixa-filamento"
+                        onClick={() => setAdminDropdownOpen(false)}
+                        className="dropdown-item"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.6rem',
+                          padding: '0.6rem 0.8rem',
+                          borderRadius: 'var(--radius-sm)',
+                          color: 'var(--text-primary)',
+                          textDecoration: 'none',
+                          fontSize: '0.9rem',
+                          fontWeight: 500
+                        }}
+                      >
+                        <ArrowDownCircle size={15} style={{ color: '#ffaa00' }} />
+                        Baixa Filamento
+                      </Link>
 
                     <Link
                       to="/admin/accessories"
@@ -1073,6 +1093,23 @@ export const Header: React.FC = () => {
                       <Layers size={16} style={{ color: 'var(--primary)' }} />
                       Filamentos
                     </Link>
+                      <Link
+                        to="/admin/baixa-filamento"
+                        onClick={() => setMobileMenuOpen(false)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          padding: '0.65rem 0.85rem',
+                          borderRadius: 'var(--radius-sm)',
+                          color: location.pathname === '/admin/baixa-filamento' ? 'var(--primary)' : 'var(--text-primary)',
+                          background: location.pathname === '/admin/baixa-filamento' ? 'rgba(0, 240, 255, 0.1)' : 'transparent',
+                          fontSize: '0.88rem'
+                        }}
+                      >
+                        <ArrowDownCircle size={16} style={{ color: '#ffaa00' }} />
+                        Baixa Filamento
+                      </Link>
                     <Link
                       to="/admin/accessories"
                       onClick={() => setMobileMenuOpen(false)}
