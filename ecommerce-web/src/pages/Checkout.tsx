@@ -30,6 +30,7 @@ import {
 interface CartItem {
   id: string;
   name: string;
+  selectedColor?: string | null;
   price: number;
   pricePix?: number;
   priceCard?: number;
@@ -111,6 +112,7 @@ interface OrderResult {
     productName: string;
     quantity: number;
     price: number;
+    color?: string | null;
   }[];
 }
 
@@ -274,10 +276,10 @@ export const Checkout: React.FC = () => {
     return digits;
   };
 
-  const updateQuantity = (id: string, delta: number) => {
+  const updateQuantity = (id: string, delta: number, selectedColor?: string | null) => {
     const updated = cartItems
       .map((item) => {
-        if (item.id === id) {
+        if (item.id === id && (item.selectedColor || '') === (selectedColor || '')) {
           const newQty = item.quantity + delta;
           return newQty > 0 ? { ...item, quantity: newQty } : null;
         }
@@ -290,8 +292,10 @@ export const Checkout: React.FC = () => {
     }
   };
 
-  const removeItem = (id: string) => {
-    const updated = cartItems.filter((item) => item.id !== id);
+  const removeItem = (id: string, selectedColor?: string | null) => {
+    const updated = cartItems.filter(
+      (item) => !(item.id === id && (item.selectedColor || '') === (selectedColor || ''))
+    );
     saveCart(updated);
   };
 
@@ -325,7 +329,7 @@ export const Checkout: React.FC = () => {
       const res = await api.post('/api/checkout/shipping', {
         zipCode: targetZip,
         shippingServiceId: shippingServiceId ?? undefined,
-        items: itemsToUse.map((i) => ({ productId: i.id, quantity: i.quantity }))
+        items: itemsToUse.map((i) => ({ productId: i.id, quantity: i.quantity, color: i.selectedColor || undefined }))
       });
 
       const allOptions: ShippingOption[] = Array.isArray(res.data.opcoes) ? res.data.opcoes : [];
@@ -500,7 +504,7 @@ export const Checkout: React.FC = () => {
     setErrorMessage(null);
     try {
       const response = await api.post('/api/checkout/process', {
-        items: cartItems.map((i) => ({ productId: i.id, quantity: i.quantity })),
+        items: cartItems.map((i) => ({ productId: i.id, quantity: i.quantity, color: i.selectedColor || undefined })),
         customerName: customerName.trim() || user?.name || 'Cliente',
         cpf: cpf.replace(/\D/g, ''),
         phone: phone.trim(),
@@ -543,7 +547,7 @@ export const Checkout: React.FC = () => {
     setErrorMessage(null);
     try {
       const response = await api.post('/api/checkout/process', {
-        items: cartItems.map((i) => ({ productId: i.id, quantity: i.quantity })),
+        items: cartItems.map((i) => ({ productId: i.id, quantity: i.quantity, color: i.selectedColor || undefined })),
         customerName: customerName.trim(),
         cpf: cpf.replace(/\D/g, ''),
         phone: phone.trim(),
@@ -917,7 +921,7 @@ export const Checkout: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {cartItems.map((item) => (
                   <div
-                    key={item.id}
+                    key={`${item.id}-${item.selectedColor || ''}`}
                     className="cart-item-row"
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
@@ -956,7 +960,7 @@ export const Checkout: React.FC = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <button
                         type="button"
-                        onClick={() => updateQuantity(item.id, -1)}
+                        onClick={() => updateQuantity(item.id, -1, item.selectedColor)}
                         style={{
                           width: '30px',
                           height: '30px',
@@ -972,7 +976,7 @@ export const Checkout: React.FC = () => {
                       <span style={{ minWidth: '24px', textAlign: 'center', fontWeight: 700 }}>{item.quantity}</span>
                       <button
                         type="button"
-                        onClick={() => updateQuantity(item.id, 1)}
+                        onClick={() => updateQuantity(item.id, 1, item.selectedColor)}
                         style={{
                           width: '30px',
                           height: '30px',
@@ -994,7 +998,7 @@ export const Checkout: React.FC = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => removeItem(item.id, item.selectedColor)}
                         style={{
                           background: 'none',
                           border: 'none',
@@ -1662,7 +1666,7 @@ export const Checkout: React.FC = () => {
 
             <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {cartItems.map((item) => (
-                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                <div key={`${item.id}-${item.selectedColor || ''}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                   <span>{item.quantity}x {item.name}</span>
                   <span>{(getItemUnitPrice(item) * item.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                 </div>
@@ -1839,7 +1843,7 @@ export const Checkout: React.FC = () => {
             orderTotal={orderResult.totalAmount}
             orderStatus={orderResult.status}
             shippingCost={orderResult.shippingCost}
-            itemsSummary={orderResult.items?.map((i) => `${i.quantity}x ${i.productName}`).join(', ')}
+            itemsSummary={orderResult.items?.map((i) => `${i.quantity}x ${i.productName}${i.color ? ` (${i.color})` : ''}`).join(', ')}
             clientName={orderResult.clientName || customerName || user?.name}
             whatsappNumber={whatsappNumber}
             mode="buyer"

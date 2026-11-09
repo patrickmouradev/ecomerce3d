@@ -24,6 +24,7 @@ interface OrderItem {
   productName: string;
   quantity: number;
   price: number;
+  color?: string | null;
 }
 
 interface Order {
@@ -318,6 +319,22 @@ export const MyOrders: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                           <span>
                             <strong>{item.quantity}x</strong> {item.productName}
+                            {item.color && (
+                              <span
+                                style={{
+                                  marginLeft: '0.5rem',
+                                  fontSize: '0.72rem',
+                                  color: 'var(--primary)',
+                                  background: 'rgba(0, 240, 255, 0.1)',
+                                  padding: '0.12rem 0.45rem',
+                                  borderRadius: '4px',
+                                  border: '1px solid rgba(0, 240, 255, 0.25)',
+                                  fontWeight: 700
+                                }}
+                              >
+                                Cor: {item.color}
+                              </span>
+                            )}
                           </span>
 
                           {/* Botão de Avaliação se o pedido estiver ENTREGUE */}
@@ -432,7 +449,7 @@ export const MyOrders: React.FC = () => {
               orderTotal={selectedChatOrder.totalAmount}
               orderStatus={selectedChatOrder.status}
               shippingCost={selectedChatOrder.shippingCost}
-              itemsSummary={selectedChatOrder.items?.map((i) => `${i.quantity}x ${i.productName}`).join(', ')}
+              itemsSummary={selectedChatOrder.items?.map((i) => `${i.quantity}x ${i.productName}${i.color ? ` (${i.color})` : ''}`).join(', ')}
               clientName={selectedChatOrder.clientName || user?.name}
               whatsappNumber={whatsappNumber}
               mode="buyer"

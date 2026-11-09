@@ -44,5 +44,6 @@ public class OrderResponseDto {
         private String productName;
         private int quantity;
         private BigDecimal price;
+        private String color;
     }
 }

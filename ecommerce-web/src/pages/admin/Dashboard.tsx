@@ -27,6 +27,7 @@ interface OrderItem {
   productName: string;
   quantity: number;
   price: number;
+  color?: string | null;
 }
 
 interface AddressDto {
@@ -758,8 +759,26 @@ export const Dashboard: React.FC = () => {
                 <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem' }}>
                   <strong>Peças do Pedido:</strong>
                   {selectedOrder.items?.map((it, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>{it.quantity}x {it.productName}</span>
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span>{it.quantity}x {it.productName}</span>
+                        {it.color && (
+                          <span
+                            style={{
+                              marginLeft: '0.45rem',
+                              fontSize: '0.72rem',
+                              color: 'var(--primary)',
+                              background: 'rgba(0, 240, 255, 0.1)',
+                              padding: '0.1rem 0.4rem',
+                              borderRadius: '4px',
+                              border: '1px solid rgba(0, 240, 255, 0.25)',
+                              fontWeight: 700
+                            }}
+                          >
+                            Cor: {it.color}
+                          </span>
+                        )}
+                      </div>
                       <span>{(it.price * it.quantity).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                     </div>
                   ))}
@@ -835,6 +854,7 @@ export const Dashboard: React.FC = () => {
               orderTotal={selectedOrder.totalAmount}
               orderStatus={selectedOrder.status}
               shippingCost={selectedOrder.shippingCost}
+              itemsSummary={selectedOrder.items?.map((i) => `${i.quantity}x ${i.productName}${i.color ? ` (${i.color})` : ''}`).join(', ')}
               clientName={selectedOrder.clientName}
               customerPhone={selectedOrder.customerPhone || selectedOrder.shippingAddress?.phone}
               mode="seller"

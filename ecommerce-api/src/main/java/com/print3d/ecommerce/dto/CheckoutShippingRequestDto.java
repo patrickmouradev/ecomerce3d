@@ -24,5 +24,6 @@ public class CheckoutShippingRequestDto {
     public static class CartItemInput {
         private UUID productId;
         private int quantity;
+        private String color;
     }
 }

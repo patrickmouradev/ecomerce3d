@@ -216,13 +216,19 @@ public class CheckoutService {
  : product.getSalePriceMercadoLivreCard();
             subtotal = subtotal.add(unitPrice.multiply(BigDecimal.valueOf(qty)));
 
+            String chosenColor = cartItem.getColor() != null && !cartItem.getColor().isBlank()
+                    ? cartItem.getColor().trim()
+                    : null;
+
             orderItems.add(OrderItem.builder()
                     .order(order)
                     .product(product)
                     .quantity(qty)
                     .price(unitPrice)
+                    .color(chosenColor)
                     .build());
-            productNames.add(qty + "x " + product.getName());
+            String colorLabel = chosenColor != null ? " (" + chosenColor + ")" : "";
+            productNames.add(qty + "x " + product.getName() + colorLabel);
         }
 
         // 3. Calcula o frete no servidor via Melhor Envio
@@ -469,6 +475,7 @@ public class CheckoutService {
                         .productName(i.getProduct() != null ? i.getProduct().getName() : "Peça 3D")
                         .quantity(i.getQuantity())
                         .price(i.getPrice())
+                        .color(i.getColor())
                         .build())
                 .toList()
                 : List.of();

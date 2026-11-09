@@ -383,17 +383,21 @@ public class OrderEmailService {
                 String prodName = item.getProduct() != null && item.getProduct().getName() != null
                         ? item.getProduct().getName()
                         : "Produto 3D";
+                String colorBadge = item.getColor() != null && !item.getColor().isBlank()
+                        ? " <span style=\"color:#00f0ff;font-size:12px;font-weight:600;\">[Cor: " + escapeHtml(item.getColor().trim()) + "]</span>"
+                        : "";
                 int qty = Math.max(1, item.getQuantity());
                 BigDecimal unitPrice = item.getPrice() != null ? item.getPrice() : BigDecimal.ZERO;
                 BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(qty)).setScale(2, RoundingMode.HALF_UP);
 
                 rows.append(String.format(
                         "<tr>" +
-                        "<td style=\"padding:10px 0;border-bottom:1px solid #21262d;color:#e6edf3;font-size:14px;\"><strong>%dx</strong> %s</td>" +
+                        "<td style=\"padding:10px 0;border-bottom:1px solid #21262d;color:#e6edf3;font-size:14px;\"><strong>%dx</strong> %s%s</td>" +
                         "<td style=\"padding:10px 0;border-bottom:1px solid #21262d;color:#e6edf3;font-size:14px;text-align:right;white-space:nowrap;\">R$ %s</td>" +
                         "</tr>",
                         qty,
                         escapeHtml(prodName),
+                        colorBadge,
                         formatMoney(lineTotal)
                 ));
             }
