@@ -1,5 +1,6 @@
 package com.print3d.ecommerce.controller;
 
+import com.print3d.ecommerce.dto.FilamentBaixaDto;
 import com.print3d.ecommerce.dto.FilamentDto;
 import com.print3d.ecommerce.service.FilamentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -10,14 +11,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.Map;
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin/filaments")
-@Tag(name = "Administração - Filamentos", description = "Endpoints de gerenciamento do estoque de filamentos (Acesso: Administrador ou Financeiro)")
+@Tag(name = "Administração - Filamentos", description = "Endpoints de gerenciamento do estoque e baixas de filamentos (Acesso: Administrador ou Financeiro)")
 @SecurityRequirement(name = "bearerAuth")
 public class FilamentController {
 
@@ -76,6 +77,35 @@ public class FilamentController {
             quantityG = payload.get("quantity");
         }
         return ResponseEntity.ok(filamentService.deductQuantity(id, quantityG));
+    }
+
+    @GetMapping("/baixas")
+    @Operation(summary = "Lista o histórico de baixas de filamentos com filtro de busca")
+    public ResponseEntity<List<FilamentBaixaDto>> getAllBaixas(
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(filamentService.getAllBaixas(search));
+    }
+
+    @PostMapping("/baixas")
+    @Operation(summary = "Registra uma nova baixa de filamento")
+    public ResponseEntity<FilamentBaixaDto> createBaixa(@Valid @RequestBody FilamentBaixaDto dto) {
+        FilamentBaixaDto created = filamentService.createBaixa(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PutMapping("/baixas/{id}")
+    @Operation(summary = "Atualiza uma baixa existente e reajusta o estoque de filamento")
+    public ResponseEntity<FilamentBaixaDto> updateBaixa(
+            @PathVariable UUID id,
+            @Valid @RequestBody FilamentBaixaDto dto) {
+        return ResponseEntity.ok(filamentService.updateBaixa(id, dto));
+    }
+
+    @DeleteMapping("/baixas/{id}")
+    @Operation(summary = "Exclui uma baixa e devolve o saldo de filamento ao estoque")
+    public ResponseEntity<Void> deleteBaixa(@PathVariable UUID id) {
+        filamentService.deleteBaixa(id);
+        return ResponseEntity.noContent().build();
     }
 
 }
